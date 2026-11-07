@@ -88,7 +88,6 @@ export function remoteNameForProject(health, projectPath) {
  *   update: { disabled: boolean, title: string },
  *   publish: { disabled: boolean, title: string },
  *   disconnect: { disabled: boolean, title: string },
- *   addRemote: { hidden: boolean },
  *   remoteInfo: { hidden: boolean, text: string }
  * }}
  */
@@ -100,7 +99,6 @@ export function computeRemoteGating(health) {
       update: { disabled: true, title: NO_REMOTE_TITLE },
       publish: { disabled: true, title: NO_REMOTE_TITLE },
       disconnect: { disabled: true, title: NO_REMOTE_TITLE },
-      addRemote: { hidden: false },
       remoteInfo: { hidden: true, text: '' }
     }
   }
@@ -118,8 +116,6 @@ export function computeRemoteGating(health) {
         `(e.g. OpenNeuro) you never intend to push to or pull further updates from — nothing already ` +
         `saved here is affected, this project just stops being linked to ${remoteName}.`
     },
-    // A source that refuses changes leaves Add a Remote as the way to share saves.
-    addRemote: { hidden: health.sourceAccepts !== 'no' },
     remoteInfo: { hidden: false, text: `Remote: ${remoteLabel}` }
   }
 }
@@ -127,7 +123,7 @@ export function computeRemoteGating(health) {
 /**
  * The Sync section only makes sense when there's something to sync with:
  * a configured remote, or a DataLad dataset that could be given one (Add a
- * Remote lives there). A plain local Git project has neither, so the whole
+ * Remote lives in Setup). A plain local Git project has neither, so the whole
  * section stays hidden for it.
  *
  * @param {string|null|undefined} classification one of 'git' | 'dataset' | 'superdataset' | 'unknown' | null
@@ -155,7 +151,7 @@ export function computeSyncActionsQuietMessage(health) {
   }
   const { update, publish } = computeRemoteGating(health)
   return update.disabled && publish.disabled
-    ? 'Nothing to sync right now — use Add a Remote below to enable Get updates and Send my saves.'
+    ? 'Nothing to sync right now — a remote is needed for Get updates and Send my saves. Add one in Setup → This project → Remote.'
     : null
 }
 

@@ -50,7 +50,7 @@ import {
 } from './project-health-chips.js'
 import { withSessionAnswer, isSourceRefusal, settingState, settingAction, REFUSED_PUBLISH_MESSAGE } from './source-accepts.js'
 import { formatAge } from './relative-age.js'
-import { describeSync } from './sync-cards.js'
+import { describeSync, remoteSettingsState } from './sync-cards.js'
 import { nextTabIndex } from './tab-keys.js'
 import { trapFocus } from './dialog-focus.js'
 import { suggestMessage, vagueMessageNudge } from './message-suggestion.js'
@@ -232,6 +232,12 @@ const elements = {
   updateProjectButton: document.getElementById('update-project'),
   publishProjectButton: document.getElementById('publish-project'),
   disconnectRemoteButton: document.getElementById('disconnect-remote'),
+  openRemoteSettingsButton: document.getElementById('open-remote-settings'),
+  setupRemoteHeading: document.getElementById('setup-remote-heading'),
+  setupRemoteLine: document.getElementById('setup-remote-line'),
+  setupRemoteReason: document.getElementById('setup-remote-reason'),
+  setupRemoteNote: document.getElementById('setup-remote-note'),
+  setupRemoteFieldset: document.getElementById('setup-remote-fieldset'),
   openActiveFolderButton: document.getElementById('open-active-folder'),
   refreshFilesButton: document.getElementById('refresh-files'),
   filesSearchInput: document.getElementById('files-search'),
@@ -700,6 +706,7 @@ elements.createSourceRemoteRadio.addEventListener('change', updateCreateProjectS
 elements.openSettingsButton.addEventListener('click', () => {
   elements.settingsCard.hidden = false
   renderSourceAcceptsSetting()
+  renderRemoteSettings()
   void refreshGitIdentity()
 })
 
@@ -1334,6 +1341,10 @@ elements.addRemoteBrowse.addEventListener('click', async () => {
   }
 })
 
+function setSetupRemoteNote(text) {
+  elements.setupRemoteNote.textContent = text
+}
+
 // The remote is only useful once Send my saves worked and the branch tracks it: otherwise remove it again, so
 // the name is free for a retry (Disconnect is disabled while no upstream exists).
 async function undoAddedRemote(projectPath, remoteName) {
@@ -1349,20 +1360,24 @@ elements.addRemoteConnect.addEventListener('click', async () => {
   }
   if (!location || !remoteName) {
     setLastActionState('Enter a location and a name first.', 'error')
+    setSetupRemoteNote('Enter a location and a name first.')
     return
   }
 
+  setSetupRemoteNote('')
   try {
     if (elements.addRemoteModeFolder.checked) {
       await api.prepareFolderRemote(projectPath, remoteName, location)
     }
     const added = await runWorkflowCommand('addRemote', { projectPath, remoteName, url: location }, elements.addRemoteConnect)
     if (!added?.ok) {
+      setSetupRemoteNote('Could not connect to that location. Details are in the output on the Home view.')
       return
     }
     const pushed = await runWorkflowCommand('push', { projectPath, remoteName }, elements.addRemoteConnect)
     if (!pushed?.ok) {
       await undoAddedRemote(projectPath, remoteName)
+      setSetupRemoteNote('Sending your saves did not work, so the remote was not kept. Details are in the output on the Home view.')
       return
     }
     try {
@@ -1372,9 +1387,11 @@ elements.addRemoteConnect.addEventListener('click', async () => {
       throw error
     }
     setLastActionState(`Connected to ${remoteName} and sent your saves.`, 'success')
+    setSetupRemoteNote(`Connected to ${remoteName} and sent your saves.`)
   } catch (error) {
     elements.commandOutput.textContent = String(error.message)
     setLastActionState('Add a Remote failed.', 'error')
+    setSetupRemoteNote('Add a Remote failed. Nothing was connected.')
   } finally {
     await refreshProjectHealth(projectPath, { fresh: true })
   }
@@ -1402,7 +1419,9 @@ elements.disconnectRemoteButton.addEventListener('click', async () => {
     return
   }
 
-  await runWorkflowCommand('disconnectRemote', { projectPath, remoteName }, elements.disconnectRemoteButton)
+  setSetupRemoteNote('')
+  const removed = await runWorkflowCommand('disconnectRemote', { projectPath, remoteName }, elements.disconnectRemoteButton)
+  setSetupRemoteNote(removed?.ok ? `Disconnected from ${remoteName}.` : 'Could not disconnect. Details are in the output on the Home view.')
   await refreshProjectHealth(projectPath, { fresh: true })
 })
 
@@ -4224,8 +4243,6 @@ function applyRemoteGatedButtons(health) {
 
   elements.disconnectRemoteButton.disabled = gating.disconnect.disabled
   elements.disconnectRemoteButton.title = gating.disconnect.title
-
-  elements.addRemote.hidden = gating.addRemote.hidden || !state.rootProjectPath
   elements.remoteInfo.hidden = gating.remoteInfo.hidden
   elements.remoteInfo.textContent = gating.remoteInfo.text
 
@@ -4256,9 +4273,7 @@ elements.attentionRows.addEventListener('click', async (event) => {
     return
   }
   if (event.target.closest('button[data-add-remote]')) {
-    showTools('sync-data-section')
-    elements.addRemote.open = true
-    elements.addRemoteLocation.focus()
+    openRemoteSettings({ openForm: true })
     return
   }
 
@@ -4281,6 +4296,30 @@ elements.attentionRows.addEventListener('click', async (event) => {
   }
   await refreshProjectHealth(projectPath, { fresh: true })
 })
+
+// Setup > Remote: the connected line, Add a Remote and Disconnect follow the health snapshot like the select above.
+function renderRemoteSettings() {
+  const projectPath = elements.commandProjectPath.value.trim()
+  const remote = remoteSettingsState(state.projectHealthSnapshot, projectPath)
+  elements.setupRemoteLine.textContent = remote.connectedLine
+  elements.setupRemoteReason.textContent = remote.reason
+  elements.setupRemoteFieldset.disabled = remote.disabled
+  elements.disconnectRemoteButton.hidden = !remote.canDisconnect
+}
+
+// Opens Setup exactly like its own button does, then moves to the Remote part.
+function openRemoteSettings({ openForm = false } = {}) {
+  elements.openSettingsButton.click()
+  elements.setupRemoteHeading.scrollIntoView({ block: 'start' })
+  if (openForm) {
+    elements.addRemote.open = true
+    elements.addRemoteLocation.focus()
+  } else {
+    elements.setupRemoteHeading.focus()
+  }
+}
+
+elements.openRemoteSettingsButton.addEventListener('click', () => openRemoteSettings())
 
 function renderSourceAcceptsSetting() {
   const projectPath = elements.commandProjectPath.value.trim()
@@ -4360,6 +4399,7 @@ function renderAttentionRows(health) {
 
 function renderProjectHealth(overrideMessage = null) {
   renderSourceAcceptsSetting()
+  renderRemoteSettings()
   if (overrideMessage) {
     elements.projectHealthOutput.textContent = overrideMessage
     setStatusLine(overrideMessage, 'neutral')

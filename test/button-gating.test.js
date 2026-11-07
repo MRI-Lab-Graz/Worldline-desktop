@@ -153,7 +153,7 @@ test('computeSyncActionsQuietMessage explains a project with no remote, for data
     const message = computeSyncActionsQuietMessage(health)
     assert.match(message, /Nothing to sync right now/)
     assert.match(message, /Get updates and Send my saves/)
-    assert.match(message, /Add a Remote/)
+    assert.match(message, /Add one in Setup → This project → Remote\.$/)
     assert.doesNotMatch(message, /Get Data/)
   }
 })
@@ -179,9 +179,9 @@ test('computeAnnexToolGating enables annex-only actions for datasets with the gi
   }
 })
 
-test('computeRemoteGating offers Add a Remote only when there is none', () => {
-  assert.equal(computeRemoteGating({ hasUpstream: false }).addRemote.hidden, false)
-  assert.equal(computeRemoteGating({ hasUpstream: true, upstream: 'origin/main' }).addRemote.hidden, true)
+test('computeRemoteGating no longer decides whether Add a Remote shows (it lives in Setup, always available)', () => {
+  assert.equal('addRemote' in computeRemoteGating({ hasUpstream: false }), false)
+  assert.equal('addRemote' in computeRemoteGating({ hasUpstream: true, upstream: 'origin/main' }), false)
 })
 
 test('remoteNameForProject names the remote only when the health snapshot is for that very project', () => {

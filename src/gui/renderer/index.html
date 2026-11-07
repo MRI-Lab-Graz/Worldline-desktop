@@ -119,6 +119,39 @@
               choice is kept in this project's own settings.
             </p>
           </div>
+
+          <h4 id="setup-remote-heading" class="setup-subtitle" tabindex="-1">Remote</h4>
+          <p class="lede-small">A remote is the other place your saves are shared with, such as a USB drive, a network share or an online repository.</p>
+          <p id="setup-remote-line" class="sync-remote-line"></p>
+          <p id="setup-remote-reason" class="lede-small"></p>
+          <p class="lede-small">Adding a remote makes it the place Get updates and Send my saves use from now on.</p>
+          <fieldset id="setup-remote-fieldset" class="remote-fieldset">
+            <details id="add-remote" class="branch-details">
+              <summary>Add a Remote</summary>
+              <p class="lede-small">
+                Keep a second copy on a USB drive or network share, or connect an empty repository you created on
+                GIN, GitHub or GitLab. The first time, all your saves are sent.
+              </p>
+              <div class="field-row">
+                <label><input type="radio" name="add-remote-mode" id="add-remote-mode-folder" value="folder" checked /> Folder</label>
+                <label><input type="radio" name="add-remote-mode" id="add-remote-mode-url" value="url" /> Repository URL</label>
+              </div>
+              <label class="field">
+                <span>Location</span>
+                <div class="field-row">
+                  <input id="add-remote-location" type="text" placeholder="/Volumes/USB/my-study  or  https://gin.g-node.org/me/my-study" />
+                  <button id="add-remote-browse" class="button button-ghost button-inline" type="button">Browse</button>
+                </div>
+              </label>
+              <label class="field">
+                <span>Name</span>
+                <input id="add-remote-name" type="text" value="backup" />
+              </label>
+              <button id="add-remote-connect" class="button button-primary" type="button">Connect and send my saves</button>
+            </details>
+          </fieldset>
+          <button id="disconnect-remote" class="button button-ghost" type="button" hidden>Disconnect from Source</button>
+          <p id="setup-remote-note" class="lede-small" role="status" aria-live="polite"></p>
         </div>
 
         <div class="setup-section">
@@ -479,34 +512,10 @@
                 <span id="sync-publish-count" class="hint-inline"></span>
               </div>
             </div>
-            <button id="disconnect-remote" class="button button-ghost" type="button" hidden>Disconnect from Source</button>
           </div>
           <p id="sync-actions-quiet" class="lede-small" hidden></p>
           <p id="remote-info" class="lede-small" hidden></p>
-
-          <details id="add-remote" class="branch-details" hidden>
-            <summary>Add a Remote</summary>
-            <p class="lede-small">
-              Keep a second copy on a USB drive or network share, or connect an empty repository you created on
-              GIN, GitHub or GitLab. The first time, all your saves are sent.
-            </p>
-            <div class="field-row">
-              <label><input type="radio" name="add-remote-mode" id="add-remote-mode-folder" value="folder" checked /> Folder</label>
-              <label><input type="radio" name="add-remote-mode" id="add-remote-mode-url" value="url" /> Repository URL</label>
-            </div>
-            <label class="field">
-              <span>Location</span>
-              <div class="field-row">
-                <input id="add-remote-location" type="text" placeholder="/Volumes/USB/my-study  or  https://gin.g-node.org/me/my-study" />
-                <button id="add-remote-browse" class="button button-ghost button-inline" type="button">Browse</button>
-              </div>
-            </label>
-            <label class="field">
-              <span>Name</span>
-              <input id="add-remote-name" type="text" value="backup" />
-            </label>
-            <button id="add-remote-connect" class="button button-primary" type="button">Connect and send my saves</button>
-          </details>
+          <button id="open-remote-settings" class="button button-ghost" type="button">Remote settings…</button>
         </section>
 
         <section id="files-panel" class="card reveal" aria-labelledby="files-title" role="tabpanel" hidden>

@@ -51,8 +51,7 @@ test('Yes and No are stored through the API; Not sure is remembered in memory on
   assert.match(body, /answer === 'unsure'[\s\S]{0,200}state\.sourceNotSure\.add\(projectPath\)/)
   assert.match(body, /answer === 'yes' \|\| answer === 'no'/)
   assert.match(body, /api\.clearSourceAccepts\(projectPath\)/)
-  assert.match(body, /showTools\('sync-data-section'\)/)
-  assert.match(body, /elements\.addRemote\.open = true/)
+  assert.match(body, /openRemoteSettings\(\{ openForm: true \}\)/)
   assert.match(app, /sourceNotSure: new Set\(\)/)
 })
 

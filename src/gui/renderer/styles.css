@@ -556,6 +556,18 @@ h2 {
   font-size: 0.95rem;
 }
 
+.setup-subtitle {
+  margin: 1rem 0 0.3rem 0;
+  font-size: 0.9rem;
+}
+
+.remote-fieldset {
+  border: 0;
+  margin: 0.4rem 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .setup-section .panel {
   margin-top: 0.6rem;
 }

@@ -69,3 +69,16 @@ export function describeSync(health) {
   publish.countText = count(ahead, 'nothing to send')
   return { remoteLine, statusLine, update, publish }
 }
+
+/**
+ * What the Remote part of Setup shows. Disabled (not hidden) unless the snapshot is for this project, like the
+ * source-accepts select. Wording only: Add a Remote and Disconnect keep their own checks.
+ * @returns {{ disabled: boolean, reason: string, connectedLine: string, canDisconnect: boolean }}
+ */
+export function remoteSettingsState(health, projectPath) {
+  const off = (reason) => ({ disabled: true, reason, connectedLine: '', canDisconnect: false })
+  if (!projectPath) return off('No project is open.')
+  if (!health || health.projectPath !== projectPath) return off('Checking this project…')
+  if (!health.hasUpstream) return { disabled: false, reason: '', connectedLine: 'No remote is connected yet.', canDisconnect: false }
+  return { disabled: false, reason: '', connectedLine: describeSync(health).remoteLine, canDisconnect: true }
+}

@@ -29,13 +29,35 @@ await writeFile(join(project, 'data', 'participants.tsv'), 'id\tage\nsub-01\t24\
 sh('datalad', ['save', '-m', 'Add participant table'], project)
 await writeFile(join(project, 'data', 'notes.txt'), 'Session notes, not yet saved.\n') // left unsaved on purpose
 
-// A shared folder (like a USB drive or lab share) as the remote, so Update and Publish show.
+// A shared folder (like a USB drive or lab share) as the remote, so Get updates and Send my saves show.
 const share = join(root, 'lab-share.git')
 sh('git', ['init', '--bare', share], root)
 sh('datalad', ['siblings', 'add', '-s', 'lab-share', '--url', share], project)
-sh('git', ['push', '-u', 'lab-share', sh('git', ['branch', '--show-current'], project).trim()], project) // upstream set: Update and Publish become available
+sh('git', ['push', '-u', 'lab-share', sh('git', ['branch', '--show-current'], project).trim()], project) // upstream set: Get updates and Send my saves become available
 
-const app = await launchApp({ trustedPaths: [project], env: { GIT_CONFIG_GLOBAL: gitconfig } })
+// A small BIDS study for the Choose data picture: a source with 4 subjects, cloned WITHOUT file content (no network).
+const bidsSource = join(root, 'bids-source')
+const bidsDemo = join(root, 'bids-demo')
+sh('datalad', ['create', bidsSource])
+await writeFile(join(bidsSource, 'dataset_description.json'), JSON.stringify({ Name: 'Memory task demo', BIDSVersion: '1.9.0', DatasetType: 'raw', Authors: ['Alex Researcher'], License: 'CC0' }, null, 2) + '\n')
+await writeFile(join(bidsSource, 'participants.tsv'), 'participant_id\tage\nsub-01\t24\nsub-02\t31\nsub-03\t27\nsub-04\t29\n')
+for (const n of ['01', '02', '03', '04']) {
+  const sub = `sub-${n}`
+  await mkdir(join(bidsSource, sub, 'ses-1', 'anat'), { recursive: true })
+  await mkdir(join(bidsSource, sub, 'ses-1', 'func'), { recursive: true })
+  const bytes = (k) => Buffer.alloc(k * 1000, `${n}${k}`) // deterministic, different per file
+  const anat = `${sub}_ses-1_T1w`
+  const func = `${sub}_ses-1_task-rest_bold`
+  await writeFile(join(bidsSource, sub, 'ses-1', 'anat', `${anat}.nii.gz`), bytes(6))
+  await writeFile(join(bidsSource, sub, 'ses-1', 'anat', `${anat}.json`), '{"MagneticFieldStrength": 3}\n')
+  await writeFile(join(bidsSource, sub, 'ses-1', 'func', `${func}.nii.gz`), bytes(9))
+  await writeFile(join(bidsSource, sub, 'ses-1', 'func', `${func}.json`), '{"RepetitionTime": 2}\n')
+  await writeFile(join(bidsSource, sub, 'ses-1', 'func', `${sub}_ses-1_task-rest_events.tsv`), 'onset\tduration\n0\t10\n')
+}
+sh('datalad', ['save', '-m', 'Add demo BIDS data'], bidsSource)
+sh('datalad', ['clone', bidsSource, bidsDemo])
+
+const app = await launchApp({ trustedPaths: [project, bidsDemo], env: { GIT_CONFIG_GLOBAL: gitconfig } })
 const { page } = app
 const settle = () => page.waitForTimeout(900) // reveal animations
 const shot = async (name, fullPage = true) => {
@@ -122,6 +144,17 @@ try {
   await tab('sync-data-section')
   await shot('11-sync')
 
+  // Setup -> This project -> Remote: lab-share shown as connected, Add a Remote form open.
+  await page.evaluate(() => document.getElementById('open-settings').click())
+  await page.waitForFunction(() => !document.getElementById('settings-card').hidden)
+  await page.evaluate(() => {
+    document.getElementById('add-remote').open = true
+    document.getElementById('setup-remote-heading').scrollIntoView()
+    window.scrollBy(0, -40) // keep the Remote heading fully in view
+  })
+  await shot('12-setup-remote', false)
+  await page.evaluate(() => document.getElementById('close-settings').click())
+
   // The conflict: the same README line changed on both branches.
   await tab('project-setup-zone')
   await page.selectOption('#merge-branch-select', 'feature/figures')
@@ -130,6 +163,26 @@ try {
   await tab('save-checkpoint-panel')
   await page.evaluate(() => document.getElementById('last-action-details').removeAttribute('open')) // a raw command is noise here
   await shot('09-merge-conflict')
+
+  // Choose data: a BIDS clone with nothing downloaded. Auto-nest is off so the listing stays simple.
+  await page.evaluate(() => {
+    localStorage.setItem('worldlineDesktop.bidsAutoNest', '0')
+    document.getElementById('bids-auto-nest-toggle').checked = false
+  })
+  await app.openProject(bidsDemo)
+  await tab('files-panel')
+  await page.waitForFunction(() => !document.getElementById('data-panel-section').hidden, null, { timeout: 30000 })
+  await page.evaluate(() => { document.getElementById('data-panel-section').open = true })
+  await page.waitForSelector('input[data-group="sub"]')
+  const tick = async (group, value) => {
+    await page.evaluate(([g, v]) => document.querySelector(`input[data-group="${g}"][data-value="${v}"]`).click(), [group, value])
+    await settle()
+  }
+  await tick('sub', '01')
+  await tick('sub', '02')
+  await tick('suffix', 'T1w')
+  await page.evaluate(() => document.getElementById('data-panel-section').scrollIntoView())
+  await shot('13-choose-data')
 } finally {
   await app.close()
   await wipe()

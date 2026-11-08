@@ -25,7 +25,7 @@ The adapter is responsible for:
 
 ## Curated commands
 
-The researcher-facing set is Clone/Install, Get Data, Free Up Space, Save, Update, Publish, Add a Remote, Mark As Version and Check Data Integrity, plus branch actions in Project Setup. The full list of adapter commands is in `docs/architecture/datalad-adapter-interface.md`.
+The researcher-facing set is Clone/Install, Get (data), Free Up Space, Save, Get updates (Update), Send my saves (Publish), Add a Remote, Mark As Version and Check Data Integrity, plus branch actions in Project Setup. The full list of adapter commands is in `docs/architecture/datalad-adapter-interface.md`.
 
 Commands such as `status`, `subdatasets`, and `siblings` can be used internally to power UI state, but should not expand the first-wave user-facing command catalog.
 

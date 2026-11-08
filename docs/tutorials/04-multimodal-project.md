@@ -36,25 +36,26 @@ and then integrated for a unified analysis save.
    - Switch to `integration/multimodal-v1` if you are not already on it.
    - In **Work on this project → Branches & Ignore → Branch**, choose one feature branch under **Merge Into Current Branch** and click **Merge**.
    - Repeat for the other two feature branches.
-   - If the same file changed on both branches, the **Merge in progress** banner appears above **What changed**. For each file choose **Keep this branch's version**, **Keep `<branch>`'s version**, or edit the file yourself and choose **I fixed it myself**; then click **Finish Merge** (or **Cancel Merge** to go back). The choices for each conflicting file, including **Keep it deleted**, **Cancel Merge** and what **I fixed it myself** needs, are explained in [Tutorial 3](03-team-feature-branches.md).
+   - If the same file changed on both branches, the merge banner (it reads "Merging … into …") appears above **What changed**. For each file choose **Keep this branch's version**, **Keep `<branch>`'s version**, or edit the file yourself and choose **I fixed it myself**; then click **Finish Merge** (or **Cancel Merge** to go back). The choices for each conflicting file, including **Keep it deleted**, **Cancel Merge** and what **I fixed it myself** needs, are explained in [Tutorial 3](03-team-feature-branches.md).
 
-   ![The Merge in progress banner above Save, with the choices for each file](../_static/screenshots/09-merge-conflict.png)
+   ![The merge banner ("Merging … into …") above Save, with the choices for each file](../_static/screenshots/09-merge-conflict.png)
 
 4. Review status for unexpected cross-modality edits.
 5. Add integration notes explaining alignment assumptions.
 6. Save the integration step with the message:
    - `integration: combine imaging clinical survey v1`
 7. Connect the shared place, then send the integration branch to it.
-   - Open **Setup** (button at the top) and find **This project → Remote**. It shows the place your saves are shared with now, or "No remote is connected yet." If none is connected, open **Add a Remote**, choose **Folder** (a USB drive or network share) or **Repository URL**, type the location and click **Connect and send my saves**. To undo it later, use **Disconnect from this remote** in the same place.
+   - Open **Setup** (button at the top) and find **This project → Remote**. It shows the place your saves are shared with now, or "No remote is connected yet." To connect (another) place, open **Add a Remote**, choose **Folder** (a USB drive or network share) or **Repository URL**, type the location and click **Connect and send my saves**; this already sends all your saves the first time. To undo it later, use **Disconnect from this remote** in the same place.
 
    ![Setup, This project, Remote: the connected place, and the Add a Remote form](../_static/screenshots/12-setup-remote.png)
 
-   - Close Setup, open **Work on this project → Sync** and click **Send my saves**. Others use **Get updates** to bring your saves in. The line at the top of the tab says where your saves are shared. In older notes, Get updates is called Update and Send my saves is called Publish.
+   - Close Setup, open **Work on this project → Sync** and click **Send my saves** whenever you have new saves to share. (The **Remote settings…** button in this tab takes you back to Setup.) Others use **Get updates** to bring your saves in. The line at the top of the tab says where your saves are shared. In older notes, Get updates is called Update and Send my saves is called Publish.
 
    ![Sync: Get updates and Send my saves, with where your saves are shared above](../_static/screenshots/11-sync.png)
 
-8. Download only what you need. Imaging projects can hold large files. If this project follows BIDS and you got it from somewhere else, open **Work on this project → Files** and expand **Choose data**.
+8. Download only what you need. Imaging projects can hold large files. If this is a BIDS project, open **Work on this project → Files** and expand **Choose data**. Files that are not yet on this computer show as "Not downloaded".
    - Tick the subjects you need and, for example, the type **T1w**. The lists narrow as you tick, and the line under them says how many files and how much space your choice takes, for example "6 files, about 12.3 KB".
+   - Matching small files come along: the .json next to an image, and participants.tsv and dataset_description.json. That is why the count is higher than the number of images.
    - Click **Download selected**. **Free up space** removes your local copy of the chosen files again; it only does so when another copy is confirmed.
    - Nothing ticked means nothing is downloaded. If a download fails, a short note under the buttons says why in plain words (for example that you do not have access).
 

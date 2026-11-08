@@ -12,7 +12,8 @@ and then integrated for a unified analysis save.
 - Manage complex projects with modality-specific components
 - Track changes across nested structures
 - Integrate parallel branches into a dedicated integration branch
-- Validate project state before Publish
+- Validate project state before Send my saves
+- Download only the data you need from a large project
 
 ## Setup
 
@@ -43,9 +44,21 @@ and then integrated for a unified analysis save.
 5. Add integration notes explaining alignment assumptions.
 6. Save the integration step with the message:
    - `integration: combine imaging clinical survey v1`
-7. Publish integration branch to shared remote.
+7. Connect the shared place, then send the integration branch to it.
+   - Open **Setup** (button at the top) and find **This project → Remote**. It shows the place your saves are shared with now, or "No remote is connected yet." If none is connected, open **Add a Remote**, choose **Folder** (a USB drive or network share) or **Repository URL**, type the location and click **Connect and send my saves**. To undo it later, use **Disconnect from this remote** in the same place.
 
-   ![Sync: Update and Publish, with the remote named below](../_static/screenshots/11-sync.png)
+   ![Setup, This project, Remote: the connected place, and the Add a Remote form](../_static/screenshots/12-setup-remote.png)
+
+   - Close Setup, open **Work on this project → Sync** and click **Send my saves**. Others use **Get updates** to bring your saves in. The line at the top of the tab says where your saves are shared. In older notes, Get updates is called Update and Send my saves is called Publish.
+
+   ![Sync: Get updates and Send my saves, with where your saves are shared above](../_static/screenshots/11-sync.png)
+
+8. Download only what you need. Imaging projects can hold large files. If this project follows BIDS and you got it from somewhere else, open **Work on this project → Files** and expand **Choose data**.
+   - Tick the subjects you need and, for example, the type **T1w**. The lists narrow as you tick, and the line under them says how many files and how much space your choice takes, for example "6 files, about 12.3 KB".
+   - Click **Download selected**. **Free up space** removes your local copy of the chosen files again; it only does so when another copy is confirmed.
+   - Nothing ticked means nothing is downloaded. If a download fails, a short note under the buttons says why in plain words (for example that you do not have access).
+
+   ![Files, Choose data: two subjects and the type T1w ticked, with the number of files and the size](../_static/screenshots/13-choose-data.png)
 
 ## Failure injection
 
@@ -56,7 +69,8 @@ and then integrated for a unified analysis save.
 ## Completion criteria
 
 - Integration branch contains all modalities with no unexplained drift.
-- Status is clean before Publish.
+- Status is clean before Send my saves.
+- You can say how to download only some subjects and file types.
 - Team can point to the exact save where modalities first align.
 
 ## Debrief

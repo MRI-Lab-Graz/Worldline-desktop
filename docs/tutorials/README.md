@@ -24,7 +24,7 @@ multi-branch collaboration.
 
 ## Audience and outcomes
 
-- New users learn safe Save, Update, and Publish behavior quickly.
+- New users learn safe Save, Get updates, and Send my saves behavior quickly.
 - Research teams learn branch-based collaboration without Git internals.
 - Advanced users learn governance patterns for large, complex studies.
 

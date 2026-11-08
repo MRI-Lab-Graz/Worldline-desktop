@@ -31,7 +31,7 @@ clear provenance, and a controlled path for urgent corrections.
 2. Run final review of project status and changed files.
 3. Save final release metadata update with message:
    - `release: freeze paper-v1 with reproducibility runbook`
-4. Publish `release/paper-v1`.
+4. Send `release/paper-v1` with **Send my saves** (Work on this project → Sync).
 5. Simulate discovery of a small numeric typo.
 6. Create `hotfix/paper-v1-erratum` from release branch.
 7. Apply typo fix and Save with message:
@@ -48,9 +48,9 @@ clear provenance, and a controlled path for urgent corrections.
 
    ![History: the save history, newest first](../_static/screenshots/06-time-machine.png)
 
-10. Publish updated branches.
+10. Send the updated branches with **Send my saves**.
 
-    ![Sync: Update and Publish, with the remote named below](../_static/screenshots/11-sync.png)
+    ![Sync: Get updates and Send my saves, with where your saves are shared above](../_static/screenshots/11-sync.png)
 
 ## Failure injection
 

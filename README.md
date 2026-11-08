@@ -33,14 +33,14 @@ across nested sub-projects? The app shows you exactly what changed and where.
   live on your disk until you need them; fetch with one click, or in BIDS
   projects tick just the subjects, sessions and file types you need
   (Files → Choose data, see [Download only what you need](docs/product/researcher-workflow.md)).
-- **Stay in sync with collaborators** — update from and publish to a shared
+- **Stay in sync with collaborators** — get updates from and send your saves to a shared
   remote without memorizing remote/branch syntax.
 - **Keep noise out of your history** — manage `.gitignore` rules per project
   or sub-project right from the app.
 - **Free up disk space safely** — remove the local copy of downloaded data; the
   app only does it when another copy (your remote or backup) is confirmed.
 - **Name the version you cite** — mark a save point as a version (for a paper or
-  a release) and Publish sends it along.
+  a release) and Send my saves sends it along.
 - **Check your data is intact** — one click re-checks every downloaded file
   against its checksum.
 - **See how a result was made** — commits recorded with `datalad run` show their

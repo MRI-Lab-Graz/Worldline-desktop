@@ -21,7 +21,7 @@ checks it against a checksum written into the script itself, and sets everything
 >
 > **macOS script:** installs git-annex and DataLad with Homebrew when they are missing (see below).
 >
-> **Linux script:** installs the app only. To use DataLad-specific actions (Get Data, Update, Publish) on a project,
+> **Linux script:** installs the app only. To use DataLad-specific actions (Get Data, Get updates, Send my saves) on a project,
 > Git, DataLad, and git-annex need to be installed on your system first; the script prints the command for your
 > distribution (it never runs `sudo` itself). See [datalad.org](https://www.datalad.org/) for more. The app's
 > diagnostics screen tells you what's missing.

@@ -1274,6 +1274,20 @@ select {
   padding: 0.58rem 0.68rem;
 }
 
+/* Zero extra specificity: class rules (changed-file-toggle, power switch) still win. */
+input:where([type='radio'], [type='checkbox']) {
+  width: auto;
+  padding: 0;
+  flex: none;
+}
+
+label:has(> input[type='radio'], > input[type='checkbox']) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 14px;
+}
+
 input:focus,
 select:focus {
   outline: 2px solid rgba(118, 15, 36, 0.22);
@@ -2234,11 +2248,28 @@ select:disabled {
   padding: 0;
 }
 
+.data-panel legend {
+  float: left;
+  margin-right: 10px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.data-panel fieldset button {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.8rem;
+}
+
 .data-panel fieldset > div {
+  clear: both;
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
-  margin-top: 4px;
+  padding-top: 6px;
+}
+
+.data-panel fieldset > div > label {
+  margin-right: 0;
 }
 
 #reckless-paths {

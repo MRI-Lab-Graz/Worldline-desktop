@@ -42,11 +42,11 @@ test('login problems, special-remote errors, USB errors and network failures nev
   assert.equal(isSourceRefusal('push', null), false)
 })
 
-test('Add a Remote stays reachable while the source does not accept changes', () => {
+test('Add a Remote no longer depends on the source: it lives in Setup and is never hidden by gating', () => {
   const health = { hasUpstream: true, upstream: 'origin/main', sourceAccepts: 'no' }
-  assert.equal(computeRemoteGating(health).addRemote.hidden, false)
-  assert.equal(computeRemoteGating({ ...health, sourceAccepts: 'yes' }).addRemote.hidden, true)
-  assert.equal(computeRemoteGating({ ...health, sourceAccepts: null }).addRemote.hidden, true)
+  for (const sourceAccepts of ['no', 'yes', null]) {
+    assert.equal('addRemote' in computeRemoteGating({ ...health, sourceAccepts }), false)
+  }
 })
 
 import { settingState, settingAction } from '../src/gui/renderer/source-accepts.js'

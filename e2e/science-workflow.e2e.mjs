@@ -58,15 +58,30 @@ test('Home shows Save with no navigation; Tools is closed', async () => {
 })
 
 test('Add a Remote creates an annex-ready folder copy and publishes the data to it', async () => {
+  // The form now lives in Setup (hidden here, scripted clicks still work); its controls sit in a <fieldset> that stays
+  // disabled until the health snapshot of this project has arrived. A scripted click inside a disabled fieldset is
+  // ignored and the button's own .disabled stays false, so ask :disabled (which includes the fieldset).
+  await app.page.waitForFunction(() => !document.getElementById('add-remote-connect').matches(':disabled'), undefined, { timeout: 30_000 })
   await app.page.evaluate((path) => {
     document.getElementById('add-remote').open = true
     document.getElementById('add-remote-location').value = path
     document.getElementById('add-remote-connect').click()
   }, backupPath)
   await statusLine(/Connected to backup and sent your saves|failed/)
+  // Wait for the page itself to show the finished state (note written, new remote seen by health), not for timing.
+  await app.page.waitForFunction(
+    () => /Connected to backup|failed|Could not|did not work/.test(document.getElementById('setup-remote-note').textContent) &&
+      /^backup/.test(document.getElementById('setup-remote-line').textContent),
+    undefined,
+    { timeout: 60_000 }
+  )
 
   const whereis = sh('git', ['annex', 'whereis', 'data.bin'], projectPath)
   assert.match(whereis, /2 copies/, await commandOutput())
+
+  // Setup tells the outcome next to the form, where the person is looking.
+  const note = await app.page.evaluate(() => document.getElementById('setup-remote-note').textContent)
+  assert.match(note, /Connected to backup and sent your saves/)
 })
 
 test('Check Data Integrity reports all files intact', async () => {

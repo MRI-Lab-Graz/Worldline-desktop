@@ -556,6 +556,18 @@ h2 {
   font-size: 0.95rem;
 }
 
+.setup-subtitle {
+  margin: 1rem 0 0.3rem 0;
+  font-size: 0.9rem;
+}
+
+.remote-fieldset {
+  border: 0;
+  margin: 0.4rem 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .setup-section .panel {
   margin-top: 0.6rem;
 }
@@ -1260,6 +1272,20 @@ select {
   color: var(--ink);
   font: inherit;
   padding: 0.58rem 0.68rem;
+}
+
+/* Zero extra specificity: class rules (changed-file-toggle, power switch) still win. */
+input:where([type='radio'], [type='checkbox']) {
+  width: auto;
+  padding: 0;
+  flex: none;
+}
+
+label:has(> input[type='radio'], > input[type='checkbox']) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 14px;
 }
 
 input:focus,
@@ -2222,11 +2248,28 @@ select:disabled {
   padding: 0;
 }
 
+.data-panel legend {
+  float: left;
+  margin-right: 10px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.data-panel fieldset button {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.8rem;
+}
+
 .data-panel fieldset > div {
+  clear: both;
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
-  margin-top: 4px;
+  padding-top: 6px;
+}
+
+.data-panel fieldset > div > label {
+  margin-right: 0;
 }
 
 #reckless-paths {

@@ -82,3 +82,8 @@ export function remoteSettingsState(health, projectPath) {
   if (!health.hasUpstream) return { disabled: false, reason: '', connectedLine: 'No remote is connected yet.', canDisconnect: false }
   return { disabled: false, reason: '', connectedLine: describeSync(health).remoteLine, canDisconnect: true }
 }
+
+/** The text to show for a result, or null when the person has meanwhile opened another project. */
+export function noteIfCurrent(capturedPath, currentPath, text) {
+  return capturedPath && capturedPath === currentPath ? text : null
+}

@@ -125,7 +125,8 @@
           <p id="setup-remote-line" class="sync-remote-line"></p>
           <p id="setup-remote-reason" class="lede-small"></p>
           <p class="lede-small">Adding a remote makes it the place Get updates and Send my saves use from now on.</p>
-          <fieldset id="setup-remote-fieldset" class="remote-fieldset">
+          <fieldset id="setup-remote-fieldset" class="remote-fieldset" aria-describedby="setup-remote-reason">
+            <legend class="sr-only">Add a Remote</legend>
             <details id="add-remote" class="branch-details">
               <summary>Add a Remote</summary>
               <p class="lede-small">
@@ -150,7 +151,7 @@
               <button id="add-remote-connect" class="button button-primary" type="button">Connect and send my saves</button>
             </details>
           </fieldset>
-          <button id="disconnect-remote" class="button button-ghost" type="button" hidden>Disconnect from Source</button>
+          <button id="disconnect-remote" class="button button-ghost" type="button" hidden>Disconnect from this remote</button>
           <p id="setup-remote-note" class="lede-small" role="status" aria-live="polite"></p>
         </div>
 

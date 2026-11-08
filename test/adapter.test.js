@@ -2243,6 +2243,19 @@ test('runCommand adds a remote as a DataLad sibling', async () => {
   assert.deepEqual(runner.calls[0].args, args)
 })
 
+test('disconnectRemote rejects unsafe remote names before anything runs, and accepts real ones', async () => {
+  for (const remoteName of ['-x', '--force', 'my remote', 'a/b', 'x..y', 'origin.lock', '']) {
+    const runner = new FakeRunner()
+    await assert.rejects(new DataLadAdapter({ runner }).runCommand('disconnectRemote', { projectPath: '/tmp/p', remoteName }), /remote ?name|cannot start with -/i, remoteName)
+    assert.equal(runner.calls.length, 0, `${remoteName} ran nothing`)
+  }
+  for (const remoteName of ['origin', 'backup', 's3-PUBLIC']) {
+    const runner = new FakeRunner()
+    await new DataLadAdapter({ runner }).runCommand('disconnectRemote', { projectPath: '/tmp/p', remoteName })
+    assert.ok(JSON.stringify(runner.calls).includes(remoteName))
+  }
+})
+
 test('addRemote rejects unsafe remote names', async () => {
   const adapter = new DataLadAdapter({ runner: new FakeRunner() })
   for (const remoteName of ['my remote', 'a/b', 'x..y', 'origin.lock']) {

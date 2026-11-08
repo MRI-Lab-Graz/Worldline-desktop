@@ -1762,6 +1762,7 @@ export class DataLadAdapter {
       case 'disconnectRemote': {
         const projectPath = request.projectPath
         const remoteName = request.remoteName
+        assertSafeRemoteName(remoteName)
         return {
           command: 'datalad',
           args: ['siblings', 'remove', '-d', projectPath, '-s', remoteName],

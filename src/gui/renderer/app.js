@@ -50,7 +50,7 @@ import {
 } from './project-health-chips.js'
 import { withSessionAnswer, isSourceRefusal, settingState, settingAction, REFUSED_PUBLISH_MESSAGE } from './source-accepts.js'
 import { formatAge } from './relative-age.js'
-import { describeSync, remoteSettingsState } from './sync-cards.js'
+import { describeSync, remoteSettingsState, noteIfCurrent } from './sync-cards.js'
 import { nextTabIndex } from './tab-keys.js'
 import { trapFocus } from './dialog-focus.js'
 import { suggestMessage, vagueMessageNudge } from './message-suggestion.js'
@@ -1165,7 +1165,7 @@ function renderBidsNestSummary(nestResult, fromRemote) {
       ? "This project's local structure now differs from its origin remote, so a future Get updates " +
         '(pulling from origin) may not merge cleanly — re-cloning is usually simpler than updating if ' +
         'you need newer data from the source. If this remote is read-only anyway (e.g. OpenNeuro), you ' +
-        'can remove the link entirely with "Disconnect from Source" in Get Data & Remote Sync.'
+        'can remove the link entirely with "Disconnect from this remote" in Setup → This project → Remote.'
       : '')
 
   const stepsHtml = steps
@@ -1341,8 +1341,10 @@ elements.addRemoteBrowse.addEventListener('click', async () => {
   }
 })
 
-function setSetupRemoteNote(text) {
-  elements.setupRemoteNote.textContent = text
+// Only for the project the result belongs to: the person may have opened another one while the command ran.
+function setSetupRemoteNote(text, projectPath) {
+  const shown = noteIfCurrent(projectPath, readProjectPath(), text)
+  if (shown !== null) elements.setupRemoteNote.textContent = shown
 }
 
 // The remote is only useful once Send my saves worked and the branch tracks it: otherwise remove it again, so
@@ -1360,24 +1362,24 @@ elements.addRemoteConnect.addEventListener('click', async () => {
   }
   if (!location || !remoteName) {
     setLastActionState('Enter a location and a name first.', 'error')
-    setSetupRemoteNote('Enter a location and a name first.')
+    setSetupRemoteNote('Enter a location and a name first.', projectPath)
     return
   }
 
-  setSetupRemoteNote('')
+  setSetupRemoteNote('', projectPath)
   try {
     if (elements.addRemoteModeFolder.checked) {
       await api.prepareFolderRemote(projectPath, remoteName, location)
     }
     const added = await runWorkflowCommand('addRemote', { projectPath, remoteName, url: location }, elements.addRemoteConnect)
     if (!added?.ok) {
-      setSetupRemoteNote('Could not connect to that location. Details are in the output on the Home view.')
+      setSetupRemoteNote('Could not connect to that location. Details are in the output on the Home view.', projectPath)
       return
     }
     const pushed = await runWorkflowCommand('push', { projectPath, remoteName }, elements.addRemoteConnect)
     if (!pushed?.ok) {
       await undoAddedRemote(projectPath, remoteName)
-      setSetupRemoteNote('Sending your saves did not work, so the remote was not kept. Details are in the output on the Home view.')
+      setSetupRemoteNote('Sending your saves did not work, so the remote was not kept. Details are in the output on the Home view.', projectPath)
       return
     }
     try {
@@ -1387,11 +1389,11 @@ elements.addRemoteConnect.addEventListener('click', async () => {
       throw error
     }
     setLastActionState(`Connected to ${remoteName} and sent your saves.`, 'success')
-    setSetupRemoteNote(`Connected to ${remoteName} and sent your saves.`)
+    setSetupRemoteNote(`Connected to ${remoteName} and sent your saves.`, projectPath)
   } catch (error) {
     elements.commandOutput.textContent = String(error.message)
     setLastActionState('Add a Remote failed.', 'error')
-    setSetupRemoteNote('Add a Remote failed. Nothing was connected.')
+    setSetupRemoteNote('Add a Remote failed. Nothing was connected.', projectPath)
   } finally {
     await refreshProjectHealth(projectPath, { fresh: true })
   }
@@ -1403,25 +1405,25 @@ elements.disconnectRemoteButton.addEventListener('click', async () => {
     return
   }
 
-  const remoteName = state.projectHealthSnapshot?.upstream?.split('/')[0]
+  const remoteName = remoteNameForProject(state.projectHealthSnapshot, projectPath)
   if (!remoteName) {
+    setSetupRemoteNote('This project has no remote to disconnect.', projectPath)
     return
   }
 
   const confirmed = window.confirm(
     `Disconnect this project from "${remoteName}"?\n\n` +
-      '- Removes the remote link entirely (the git remote and any DataLad sibling config for it).\n' +
-      '- Everything already saved locally is unaffected.\n' +
-      `- Get updates and Send my saves against ${remoteName} will no longer be available afterward.\n\n` +
+      `Stops this project from sharing with ${remoteName}. Everything you saved here stays on this computer.\n` +
+      `Get updates and Send my saves against ${remoteName} will no longer be available afterward.\n\n` +
       'Continue?'
   )
   if (!confirmed) {
     return
   }
 
-  setSetupRemoteNote('')
+  setSetupRemoteNote('', projectPath)
   const removed = await runWorkflowCommand('disconnectRemote', { projectPath, remoteName }, elements.disconnectRemoteButton)
-  setSetupRemoteNote(removed?.ok ? `Disconnected from ${remoteName}.` : 'Could not disconnect. Details are in the output on the Home view.')
+  setSetupRemoteNote(removed?.ok ? `Disconnected from ${remoteName}.` : "Could not disconnect. See 'Details of last action' on the Home view.", projectPath)
   await refreshProjectHealth(projectPath, { fresh: true })
 })
 
@@ -2010,6 +2012,7 @@ function resetDataPanel() {
   elements.dataRecklessOffer.hidden = true
   closeRecklessDialog()
   elements.dataPanelNote.textContent = ''
+  elements.setupRemoteNote.textContent = ''
   elements.dataPanelFreeSummary.textContent = ''
   elements.dataPanelBody.textContent = ''
   if (elements.dataPanelSection.open) void loadDataPanel()
@@ -2456,6 +2459,7 @@ async function runWorkflowCommand(commandName, request, button = null, busyLabel
   }
 
   state.pendingCommands.add(commandName)
+  syncDisconnectGating()
   const runId = createRunId()
   trackRun(runId, actionLabel(commandName), progressTotal)
   const pathCount = Array.isArray(request.paths) ? request.paths.length : 0
@@ -2529,6 +2533,7 @@ async function runWorkflowCommand(commandName, request, button = null, busyLabel
     state.pendingCommands.delete(commandName)
     setButtonBusy(button, false)
     syncAttentionRowGating()
+    syncDisconnectGating()
     updateSaveButtonState()
 
     if (state.pendingCommands.size === 0 && state.watchRefreshPending) {
@@ -4233,6 +4238,13 @@ function renderSyncCards(health) {
   elements.syncPublishCount.textContent = view.publish.countText
 }
 
+// Disconnect needs a remote and must not run next to another command.
+function syncDisconnectGating(health = state.projectHealthSnapshot) {
+  const { disconnect } = computeRemoteGating(health)
+  elements.disconnectRemoteButton.disabled = disconnect.disabled || state.pendingCommands.size > 0
+  elements.disconnectRemoteButton.title = disconnect.title
+}
+
 function applyRemoteGatedButtons(health) {
   const gating = computeRemoteGating(health)
 
@@ -4241,8 +4253,7 @@ function applyRemoteGatedButtons(health) {
   elements.publishProjectButton.disabled = gating.publish.disabled
   elements.publishProjectButton.title = gating.publish.title
 
-  elements.disconnectRemoteButton.disabled = gating.disconnect.disabled
-  elements.disconnectRemoteButton.title = gating.disconnect.title
+  syncDisconnectGating(health)
   elements.remoteInfo.hidden = gating.remoteInfo.hidden
   elements.remoteInfo.textContent = gating.remoteInfo.text
 

@@ -31,7 +31,7 @@ clear provenance, and a controlled path for urgent corrections.
 2. Run final review of project status and changed files.
 3. Save final release metadata update with message:
    - `release: freeze paper-v1 with reproducibility runbook`
-4. Publish `release/paper-v1`.
+4. Send `release/paper-v1` with **Send my saves** (Work on this project → Sync).
 5. Simulate discovery of a small numeric typo.
 6. Create `hotfix/paper-v1-erratum` from release branch.
 7. Apply typo fix and Save with message:
@@ -39,7 +39,7 @@ clear provenance, and a controlled path for urgent corrections.
 8. Save all changes first; Merge refuses to start with unsaved changes.
    - Switch to the release branch and merge the hotfix with **Merge Into Current Branch** and **Merge**.
    - Then switch to `main` and merge the release branch the same way.
-   - If the same file changed on both branches in either merge, the **Merge in progress** banner appears above **What changed**. For each file choose **Keep this branch's version**, **Keep `<branch>`'s version**, or edit the file yourself and choose **I fixed it myself**; then click **Finish Merge** (or **Cancel Merge** to go back). The choices for each conflicting file, including **Keep it deleted**, **Cancel Merge** and what **I fixed it myself** needs, are explained in [Tutorial 3](03-team-feature-branches.md).
+   - If the same file changed on both branches in either merge, the merge banner (it reads "Merging … into …") appears above **What changed**. For each file choose **Keep this branch's version**, **Keep `<branch>`'s version**, or edit the file yourself and choose **I fixed it myself**; then click **Finish Merge** (or **Cancel Merge** to go back). The choices for each conflicting file, including **Keep it deleted**, **Cancel Merge** and what **I fixed it myself** needs, are explained in [Tutorial 3](03-team-feature-branches.md).
 9. If the paper's numbers come from a script, record the final analysis with **Work on this project → History → Run & record** (Save your changes first): the result is saved together with the exact command, so the version you mark can be repeated.
 
    ![Run & record: the command, its inputs and outputs, and a message](../_static/screenshots/10-run-and-record.png)
@@ -48,9 +48,9 @@ clear provenance, and a controlled path for urgent corrections.
 
    ![History: the save history, newest first](../_static/screenshots/06-time-machine.png)
 
-10. Publish updated branches.
+10. Send the updated branches with **Send my saves**.
 
-    ![Sync: Update and Publish, with the remote named below](../_static/screenshots/11-sync.png)
+    ![Sync: Get updates and Send my saves, with where your saves are shared above](../_static/screenshots/11-sync.png)
 
 ## Failure injection
 

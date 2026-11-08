@@ -36,20 +36,20 @@ must ingest new waves while preserving site-level traceability.
    - Repeat for the other site branch.
 3. Validate integration, switch to `main` and merge `integration/wave-01` the same way.
 4. Repeat for wave 2 with the same discipline.
-5. Use Update before each integration merge to reduce divergence.
-   - If Update leaves conflicts, the **Merge in progress** banner appears above **What changed**.
+5. Use **Get updates** (Work on this project → Sync) before each integration merge to reduce divergence. (If no remote is connected yet, see Tutorial 4, step 7: Setup → This project → Remote.)
+   - If Get updates leaves conflicts, the merge banner (it reads "Merging … into …") appears above **What changed**.
    - For each file choose **Keep this branch's version**, **Keep `<branch>`'s version**, or edit the file yourself and choose **I fixed it myself**; then click **Finish Merge** (or **Cancel Merge** to go back). The choices for each conflicting file, including **Keep it deleted**, **Cancel Merge** and what **I fixed it myself** needs, are explained in [Tutorial 3](03-team-feature-branches.md).
 
-   ![Sync: Update and Publish, with the remote named below](../_static/screenshots/11-sync.png)
+   ![Sync: Get updates and Send my saves, with where your saves are shared above](../_static/screenshots/11-sync.png)
 
-6. Publish only after each wave integration passes review.
+6. Use **Send my saves** only after each wave integration passes review.
 
 ## Failure injection
 
 - Simulate late correction from Site B after wave 1 merged.
 - Apply correction on `site/b-wave-01`, Save, switch to `integration/wave-02`
   and merge `site/b-wave-01` with **Merge Into Current Branch**, with explicit
-  note. If the same file changed on both, decide per file in the **Merge in progress** banner and click **Finish Merge**.
+  note. If the same file changed on both, decide per file in the merge banner and click **Finish Merge**.
 
 ## Completion criteria
 

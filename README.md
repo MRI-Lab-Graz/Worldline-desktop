@@ -55,6 +55,14 @@ across nested sub-projects? The app shows you exactly what changed and where.
 
 ## Download & Install
 
+> **Right now only a beta exists (0.6.0-beta.1).** The "latest release" on GitHub is still the old version 0.5.5, from before the rename, which uses different file names. If the app you installed has a name that starts with "DataLad", you got that old one. On macOS (Apple silicon) open Terminal and run:
+>
+> ```bash
+> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.1/macos-install.sh | bash
+> ```
+>
+> Windows and Linux: see the [beta testing guide](https://worldline-desktop.readthedocs.io/en/latest/beta-testing.html).
+
 Download the app for your OS from the [Releases page](https://github.com/MRI-Lab-Graz/Worldline-desktop/releases):
 **Windows** `windows-install.cmd` (one file, no admin rights), **macOS** `macos-install.sh` (Apple silicon, one Terminal command, no Gatekeeper warning), **Linux** `linux-install.sh`. The scripts check the app against a SHA-256 written into the script, so the
 unsigned builds need no click-through warning.

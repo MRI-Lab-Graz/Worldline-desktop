@@ -132,3 +132,12 @@ test('listDirectory tells a locked file (a link into the annex) from an editable
   assert.equal(entries['locked.dat'].locked, true)
   assert.equal(entries['README.md'].locked, false)
 })
+
+test('listDirectory hides operating-system noise files (.DS_Store, Thumbs.db, desktop.ini)', async () => {
+  const root = await project()
+  for (const name of ['.DS_Store', 'Thumbs.db', 'desktop.ini']) await writeFile(join(root, name), 'x')
+  const names = (await listDirectory({ rootPath: root, run })).entries.map((entry) => entry.name)
+
+  assert.deepEqual(names.filter((name) => ['.DS_Store', 'Thumbs.db', 'desktop.ini'].includes(name)), [])
+  assert.ok(names.includes('README.md'))
+})

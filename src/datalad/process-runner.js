@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { killProcessTree, QUIT_ABORT_REASON } from './kill-tree.js'
-import { resolveTool } from './resolve-tool.js'
+import { resolveTool, withToolDirs } from './resolve-tool.js'
 
 // git acquires .git/index.lock atomically before any mutation, so a command
 // that fails to acquire it never partially ran — a retry after a short
@@ -37,7 +37,7 @@ export const HOOKS_DIR = resolveHooksDir()
 // a repo's own .git/config cannot make `git status` run a program, only the stock git-annex
 // hooks run, and datalad never runs procedures a dataset ships.
 function childEnv(extra = {}) {
-  const env = { ...process.env, ...extra }
+  const env = withToolDirs({ ...process.env, ...extra })
   for (const [key, value] of [['core.fsmonitor', 'false'], ['core.hooksPath', HOOKS_DIR], ['safe.bareRepository', 'explicit'], ['protocol.ext.allow', 'never']]) {
     const n = Number.parseInt(env.GIT_CONFIG_COUNT ?? '0', 10) || 0
     env[`GIT_CONFIG_KEY_${n}`] = key

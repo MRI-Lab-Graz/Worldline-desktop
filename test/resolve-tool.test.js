@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, writeFile, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, delimiter } from 'node:path'
-import { resolveTool } from '../src/datalad/resolve-tool.js'
+import { resolveTool, withToolDirs } from '../src/datalad/resolve-tool.js'
 
 async function fakeTool(dir, file) {
   await mkdir(dir, { recursive: true })
@@ -92,4 +92,17 @@ test('resolveTool ignores extraDirs on win32', async () => {
 test('resolveTool defaults extraDirs to the Homebrew/MacPorts folders (absolute only)', () => {
   // no tool of this name exists anywhere; just proves the default does not throw and stays null
   assert.equal(resolveTool('no-such-tool-xyz', { pathEnv: '/usr/bin', platform: 'darwin' }), null)
+})
+
+// A Finder launch gives the app PATH=/usr/bin:/bin:...; datalad is found by absolute path but then runs `git annex`,
+// which needs git-annex on PATH. So children get the Homebrew/MacPorts folders appended (never in front).
+test('withToolDirs appends the Homebrew and MacPorts folders on macOS, after the existing PATH, without repeats', () => {
+  const env = withToolDirs({ PATH: '/usr/bin:/bin:/usr/local/bin' }, 'darwin')
+  assert.equal(env.PATH, '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin:/opt/local/bin')
+  assert.equal(withToolDirs({}, 'darwin').PATH, '/opt/homebrew/bin:/usr/local/bin:/opt/local/bin')
+})
+
+test('withToolDirs leaves Windows and Linux alone', () => {
+  assert.deepEqual(withToolDirs({ Path: 'C:\\x' }, 'win32'), { Path: 'C:\\x' })
+  assert.deepEqual(withToolDirs({ PATH: '/usr/bin' }, 'linux'), { PATH: '/usr/bin' })
 })

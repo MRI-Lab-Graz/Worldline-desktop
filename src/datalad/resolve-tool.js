@@ -45,3 +45,11 @@ export function resolveTool(
   }
   return null
 }
+
+// The folders go behind the existing PATH, so nothing here can shadow a tool the user already has.
+export function withToolDirs(env, platform = process.platform) {
+  if (platform !== 'darwin') return env
+  const have = (env.PATH ?? '').split(delimiter).filter(Boolean)
+  const add = MAC_TOOL_DIRS.filter((dir) => !have.includes(dir))
+  return { ...env, PATH: [...have, ...add].join(delimiter) }
+}

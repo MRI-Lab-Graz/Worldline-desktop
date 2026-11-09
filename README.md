@@ -1,3 +1,5 @@
+<p align="center"><img src="src/gui/assets/icons/worldline_desktop_streams.gif" alt="Worldline Desktop logo" width="160"></p>
+
 # Worldline Desktop
 
 [![Documentation](https://readthedocs.org/projects/worldline-desktop/badge/?version=latest)](https://worldline-desktop.readthedocs.io/) [**Read the docs →**](https://worldline-desktop.readthedocs.io/)

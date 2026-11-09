@@ -97,9 +97,10 @@ test('resolveTool defaults extraDirs to the Homebrew/MacPorts folders (absolute 
 // A Finder launch gives the app PATH=/usr/bin:/bin:...; datalad is found by absolute path but then runs `git annex`,
 // which needs git-annex on PATH. So children get the private environment in front and the Homebrew/MacPorts folders appended.
 test('withToolDirs puts the private environment first and appends the Homebrew and MacPorts folders on macOS, without repeats', () => {
-  const env = withToolDirs({ PATH: '/usr/bin:/bin:/usr/local/bin' }, 'darwin')
-  assert.equal(env.PATH, `${MAC_PRIVATE_BIN}:/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin:/opt/local/bin`)
-  assert.equal(withToolDirs({}, 'darwin').PATH, `${MAC_PRIVATE_BIN}:/opt/homebrew/bin:/usr/local/bin:/opt/local/bin`)
+  const join = (...dirs) => dirs.join(delimiter) // the test also runs on Windows, where PATH entries are joined with ';'
+  const env = withToolDirs({ PATH: join('/usr/bin', '/bin', '/usr/local/bin') }, 'darwin')
+  assert.equal(env.PATH, join(MAC_PRIVATE_BIN, '/usr/bin', '/bin', '/usr/local/bin', '/opt/homebrew/bin', '/opt/local/bin'))
+  assert.equal(withToolDirs({}, 'darwin').PATH, join(MAC_PRIVATE_BIN, '/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin'))
 })
 
 test('withToolDirs leaves Windows and Linux alone', () => {

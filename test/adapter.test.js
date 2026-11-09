@@ -3036,3 +3036,45 @@ test('checkEnvironment reports the private environment Python when there is one,
   const diagnostics = await new DataLadAdapter({ runner, privatePython: '/env/bin/python3' }).checkEnvironment()
   assert.equal(diagnostics.python.version, 'Python 3.12.13')
 })
+
+test('getDeletionRisk counts unsaved changes, unsent saves and data that exists only on this computer', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dlad-risk-'))
+  const runner = new FakeRunner()
+  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { stdout: 'true\n' })
+  runner.set('git', ['-C', root, 'status', '--porcelain'], { stdout: ' M a.txt\n?? b.txt\n' })
+  runner.set('git', ['-C', root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], { stdout: 'origin/main\n' })
+  runner.set('git', ['-C', root, 'rev-list', '--left-right', '--count', 'origin/main...HEAD'], { stdout: '0\t3\n' })
+  runner.set('git', ['-C', root, 'config', '--get', 'annex.uuid'], { stdout: 'abc\n' })
+  runner.set('git', ['-C', root, 'annex', 'find', '--in', 'here', '--not', '--copies', '2'], { stdout: 'a.nii\nb.nii\nc.nii\n' })
+  const adapter = new DataLadAdapter({ runner })
+
+  const risk = await adapter.getDeletionRisk(root)
+
+  assert.deepEqual(risk, { hasRemote: true, unsavedChanges: 2, unsentSaves: 3, onlyHereCount: 3 })
+})
+
+test('getDeletionRisk says so when there is no remote and the annex count is unknown', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dlad-risk-none-'))
+  const runner = new FakeRunner()
+  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { stdout: 'true\n' })
+  runner.set('git', ['-C', root, 'status', '--porcelain'], { stdout: '' })
+  const adapter = new DataLadAdapter({ runner })
+
+  const risk = await adapter.getDeletionRisk(root)
+
+  assert.deepEqual(risk, { hasRemote: false, unsavedChanges: 0, unsentSaves: null, onlyHereCount: null })
+})
+
+test('getDeletionRisk does not start git-annex in a plain git project: no annex.uuid means no annexed data', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dlad-risk-plain-'))
+  const runner = new FakeRunner()
+  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { stdout: 'true\n' })
+  runner.set('git', ['-C', root, 'status', '--porcelain'], { stdout: '' })
+  runner.set('git', ['-C', root, 'config', '--get', 'annex.uuid'], { exitCode: 1, failed: true })
+  const adapter = new DataLadAdapter({ runner })
+
+  const risk = await adapter.getDeletionRisk(root)
+
+  assert.equal(risk.onlyHereCount, 0)
+  assert.equal(runner.calls.some((call) => call.args.includes('annex')), false)
+})

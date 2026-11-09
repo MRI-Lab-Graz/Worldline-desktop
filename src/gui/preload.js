@@ -57,6 +57,8 @@ contextBridge.exposeInMainWorld('worldlineDesktop', {
   listBranches: (projectPath) => ipcRenderer.invoke('adapter:listBranches', projectPath),
   getLastCommit: (projectPath) => ipcRenderer.invoke('adapter:getLastCommit', projectPath),
   getWorkingTreeStatus: (projectPath) => ipcRenderer.invoke('adapter:getWorkingTreeStatus', projectPath),
+  getDeletionPreview: (projectPath) => ipcRenderer.invoke('adapter:getDeletionPreview', projectPath),
+  deleteProject: (payload) => ipcRenderer.invoke('adapter:deleteProject', payload),
   listRecentCommits: (projectPath, options) =>
     ipcRenderer.invoke('adapter:listRecentCommits', {
       projectPath,

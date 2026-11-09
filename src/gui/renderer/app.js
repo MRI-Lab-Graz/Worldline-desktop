@@ -15,6 +15,7 @@ import {
   describeActionNote, describeGetAll, canRunReckless, describeRecklessDialog, isDeleteWord, needsRecklessOffer, panelMatchesProject, planGetAll, planPaths,
   runSelectedBatches, runStillCurrent, startSequence
 } from './data-actions.js'
+import { describeDeletionRisk, describeFolderSize, projectNameMatches, withoutProject } from './delete-project-view.js'
 import { previewPaths } from './reckless-preview.js'
 import { escapeHtml } from './escape-html.js'
 import { describeUpdates } from './update-notice.js'
@@ -291,6 +292,18 @@ const elements = {
   dataPanelNote: document.getElementById('data-panel-note'),
   dataRecklessOffer: document.getElementById('data-reckless-offer'),
   dataRecklessOpen: document.getElementById('data-reckless-open'),
+  deleteProjectOpen: document.getElementById('delete-project-open'),
+  deleteProjectNote: document.getElementById('delete-project-note'),
+  deleteProjectOverlay: document.getElementById('delete-project-overlay'),
+  deleteProjectForm: document.getElementById('delete-project-form'),
+  deleteProjectFolder: document.getElementById('delete-project-folder'),
+  deleteProjectSize: document.getElementById('delete-project-size'),
+  deleteProjectRisk: document.getElementById('delete-project-risk'),
+  deleteProjectWarnings: document.getElementById('delete-project-warnings'),
+  deleteProjectNameLabel: document.getElementById('delete-project-name-label'),
+  deleteProjectName: document.getElementById('delete-project-name'),
+  deleteProjectCancel: document.getElementById('delete-project-cancel'),
+  deleteProjectConfirm: document.getElementById('delete-project-confirm'),
   recklessOverlay: document.getElementById('reckless-overlay'),
   recklessForm: document.getElementById('reckless-form'),
   recklessCount: document.getElementById('reckless-count'),
@@ -2146,6 +2159,88 @@ async function runDataPanelAction(mode, button) {
     endSequence()
   }
 }
+
+// Delete the whole project folder (Setup > Danger zone). The main process checks everything again; this page only
+// asks. Folder and project names come from the disk, so they are only ever put in with textContent.
+const deleteProjectFocus = trapFocus(elements.deleteProjectOverlay)
+let deleteProjectTarget = null // { projectPath, name } the dialog was opened for
+
+function closeDeleteProjectDialog() {
+  elements.deleteProjectName.value = '' // nothing is remembered between uses
+  elements.deleteProjectConfirm.disabled = true
+  elements.deleteProjectOverlay.hidden = true
+  deleteProjectTarget = null
+  deleteProjectFocus.restore()
+}
+
+elements.deleteProjectOpen.addEventListener('click', async () => {
+  const projectPath = readProjectPath()
+  if (!projectPath) return
+  elements.deleteProjectNote.textContent = ''
+  let preview
+  try {
+    preview = await api.getDeletionPreview(projectPath)
+  } catch {
+    elements.deleteProjectNote.textContent = 'This project cannot be deleted from here. Nothing was changed.'
+    return
+  }
+  if (elements.commandProjectPath.value.trim() !== projectPath) return // the project changed while we looked
+  deleteProjectTarget = { projectPath, name: preview.name }
+  elements.deleteProjectFolder.textContent = preview.projectPath
+  elements.deleteProjectSize.textContent = describeFolderSize(preview)
+  elements.deleteProjectNameLabel.textContent = preview.name
+  const lines = describeDeletionRisk(preview.risk)
+  elements.deleteProjectWarnings.replaceChildren(...lines.map((line) => Object.assign(document.createElement('li'), { textContent: line })))
+  elements.deleteProjectRisk.hidden = lines.length === 0
+  elements.deleteProjectName.value = ''
+  elements.deleteProjectConfirm.disabled = true
+  deleteProjectFocus.remember()
+  elements.deleteProjectOverlay.hidden = false
+  elements.deleteProjectName.focus()
+})
+elements.deleteProjectName.addEventListener('input', () => {
+  elements.deleteProjectConfirm.disabled = !projectNameMatches(elements.deleteProjectName.value, deleteProjectTarget?.name)
+})
+elements.deleteProjectCancel.addEventListener('click', closeDeleteProjectDialog)
+elements.deleteProjectOverlay.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeDeleteProjectDialog()
+})
+elements.deleteProjectForm.addEventListener('submit', async (event) => {
+  event.preventDefault()
+  const target = deleteProjectTarget
+  const typed = elements.deleteProjectName.value
+  if (!target || !projectNameMatches(typed, target.name)) return // fails closed
+  closeDeleteProjectDialog()
+  elements.deleteProjectNote.textContent = 'Deleting…'
+  try {
+    const result = await api.deleteProject({ projectPath: target.projectPath, name: typed })
+    if (!result?.deleted) {
+      elements.deleteProjectNote.textContent = 'Nothing was deleted.'
+      return
+    }
+    const rest = withoutProject(
+      { recentProjects: state.recentProjects, emojiByPath: state.recentProjectEmojiByPath, titleByPath: state.recentProjectTitleByPath },
+      target.projectPath
+    )
+    state.recentProjects = rest.recentProjects
+    state.recentProjectEmojiByPath = rest.emojiByPath
+    state.recentProjectTitleByPath = rest.titleByPath
+    persistRecentProjects()
+    renderRecentProjects()
+    if (state.rootProjectPath === target.projectPath) {
+      state.rootProjectPath = null
+      elements.commandProjectPath.value = ''
+      setProjectDependentSectionsVisible(false)
+      setOnboardingExpanded(true)
+    }
+    elements.deleteProjectNote.textContent = ''
+    setLastActionState(`Deleted "${target.name}" from this computer.`, 'success')
+  } catch (error) {
+    elements.deleteProjectNote.textContent = 'Could not delete the whole project. Some files may be left. Nothing on a remote was touched.'
+    elements.commandOutput.textContent = String(error.message)
+    setLastActionState('Delete project failed.', 'error')
+  }
+})
 
 const recklessFocus = trapFocus(elements.recklessOverlay)
 

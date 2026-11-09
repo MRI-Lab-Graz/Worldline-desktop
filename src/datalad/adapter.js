@@ -1470,6 +1470,34 @@ export class DataLadAdapter {
     }
   }
 
+  // What a delete would lose for good. null means "could not tell", never "none".
+  async getDeletionRisk(projectPath) {
+    await this.#ensureGitProject(projectPath)
+
+    const [status, sync, onlyHere] = await Promise.all([
+      this.runner.run('git', ['-C', projectPath, 'status', '--porcelain']),
+      this.#readSyncStatus(projectPath),
+      this.#readOnlyHere(projectPath)
+    ])
+    const lines = (result) => (result.stdout ?? '').split(/\r?\n/).filter((line) => line.trim() !== '').length
+
+    return {
+      hasRemote: sync.hasUpstream,
+      unsavedChanges: status.failed ? null : lines(status),
+      unsentSaves: sync.hasUpstream ? sync.ahead : null,
+      onlyHereCount: onlyHere.failed ? null : lines(onlyHere)
+    }
+  }
+
+  // Only a repo whose annex.uuid is set is asked: `git annex find` would otherwise initialise git-annex in a plain git project.
+  async #readOnlyHere(projectPath) {
+    const uuid = await this.runner.run('git', ['-C', projectPath, 'config', '--get', 'annex.uuid'])
+    if (uuid.failed) {
+      return uuid.exitCode === 1 ? { failed: false, stdout: '' } : uuid // exit 1 = key not set = no annex here
+    }
+    return this.runner.run('git', ['-C', projectPath, 'annex', 'find', '--in', 'here', '--not', '--copies', '2'])
+  }
+
   async #readSyncStatus(projectPath) {
     const upstreamResult = await this.runner.run('git', [
       '-C',

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from 'electron'
 import { access, stat } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DataLadAdapter } from '../datalad/adapter.js'
 import { getGitIdentity, setGitIdentity } from '../datalad/git-identity.js'
@@ -10,6 +10,7 @@ import { ProcessRunner } from '../datalad/process-runner.js'
 import { assertCommandRequest } from '../datalad/schema.js'
 import { createResultCounter } from '../datalad/result-counter.js'
 import { createProjectWatcher } from './fs-watch.js'
+import { assertDeletableProject, deleteProjectFolder, folderSize, projectNameMatches } from './delete-project.js'
 import { listDirectory } from './list-directory.js'
 import { previewPaths } from './renderer/reckless-preview.js'
 import { initialAuthorizedRoots, isUnsafeBackupLocation, isWithinRoots } from './path-confinement.js'
@@ -564,6 +565,42 @@ handle('adapter:getLastCommit', async (_event, projectPath) => {
 handle('adapter:getWorkingTreeStatus', async (_event, projectPath) => {
   requireAuthorizedRoot(projectPath)
   return adapter.getWorkingTreeStatus(projectPath)
+})
+
+// What a delete would lose, shown in the page's dialog. Throws (so the page offers no delete) for a folder that may not be deleted.
+handle('adapter:getDeletionPreview', async (_event, projectPath) => {
+  requireAuthorizedRoot(projectPath)
+  const target = assertDeletableProject(projectPath, { roots: authorizedRoots })
+  const [risk, size] = await Promise.all([adapter.getDeletionRisk(projectPath), folderSize(target)])
+  return { projectPath: target, name: basename(target), risk, ...size }
+})
+
+// Deletes the whole project folder from this computer. Never touches a remote. The typed name is checked here, not
+// only in the page, and the main process asks once more natively.
+handle('adapter:deleteProject', async (event, payload = {}) => {
+  const { projectPath, name } = payload
+  requireAuthorizedRoot(projectPath)
+  const target = assertDeletableProject(projectPath, { roots: authorizedRoots })
+  if (!projectNameMatches(name, basename(target))) {
+    throw new Error('The name does not match, so nothing was deleted.')
+  }
+  const confirmed = await confirmNative(event, {
+    title: 'Delete this project?',
+    message: `Delete this project from this computer?${previewPaths([basename(target)])}`,
+    detail: `${previewPaths([target]).trim()}\n\nThe whole folder and everything in it will be deleted. This cannot be undone. Copies on a remote are not touched.`,
+    confirmLabel: 'Delete project'
+  })
+  if (!confirmed) {
+    return { deleted: false }
+  }
+  if (activeProjectWatcher) {
+    activeProjectWatcher.stop()
+    activeProjectWatcher = null
+  }
+  await deleteProjectFolder(target, { roots: authorizedRoots })
+  authorizedRoots.delete(resolve(projectPath))
+  authorizedRoots.delete(target) // a re-created folder at this path must be opened and trusted again
+  return { deleted: true }
 })
 
 handle('adapter:listRecentCommits', async (_event, payload = {}) => {

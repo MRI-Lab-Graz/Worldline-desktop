@@ -153,6 +153,13 @@
           </fieldset>
           <button id="disconnect-remote" class="button button-ghost" type="button" hidden>Disconnect from this remote</button>
           <p id="setup-remote-note" class="lede-small" role="status" aria-live="polite"></p>
+
+          <div class="danger-zone">
+            <h4 class="danger-zone-title">Danger zone</h4>
+            <p class="lede-small">Delete this project from this computer, with all its files. Copies on a remote are not touched.</p>
+            <button id="delete-project-open" class="button button-danger" type="button">Delete this project…</button>
+            <p id="delete-project-note" class="lede-small" role="status" aria-live="polite"></p>
+          </div>
         </div>
 
         <div class="setup-section">
@@ -799,6 +806,28 @@
         <div class="row-actions">
           <button id="reckless-cancel" class="button button-ghost button-inline" type="button">Keep my files</button>
           <button id="reckless-confirm" class="button button-inline" type="submit" disabled>Delete</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="delete-project-overlay" class="global-busy-overlay" hidden>
+      <form id="delete-project-form" class="global-busy-card identity-card" role="dialog" aria-modal="true" aria-labelledby="delete-project-title">
+        <h2 id="delete-project-title">Delete this project?</h2>
+        <p class="lede-small"><strong>This deletes the whole folder from this computer and cannot be undone.</strong></p>
+        <p class="lede-small">Folder: <span id="delete-project-folder" class="delete-project-path"></span></p>
+        <p id="delete-project-size" class="lede-small"></p>
+        <div id="delete-project-risk" class="danger-box" hidden>
+          <strong>Check before you delete:</strong>
+          <ul id="delete-project-warnings"></ul>
+        </div>
+        <p class="lede-small">Copies on a remote stay where they are. This button never deletes anything on a remote.</p>
+        <label class="field">
+          <span>Type <strong id="delete-project-name-label"></strong> to confirm</span>
+          <input id="delete-project-name" type="text" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="row-actions">
+          <button id="delete-project-cancel" class="button button-ghost button-inline" type="button">Keep my project</button>
+          <button id="delete-project-confirm" class="button button-danger button-inline" type="submit" disabled>Delete project</button>
         </div>
       </form>
     </div>

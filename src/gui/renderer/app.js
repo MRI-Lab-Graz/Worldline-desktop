@@ -18,6 +18,7 @@ import {
 import { previewPaths } from './reckless-preview.js'
 import { escapeHtml } from './escape-html.js'
 import { describeUpdates } from './update-notice.js'
+import { setupBadge } from './setup-badge.js'
 import { changeSignature, describeFolders, describeSaveValidity, describeTypeBadge, describeValidity, moreProblemsLine } from './project-card.js'
 import { rowDataActions } from './row-data-actions.js'
 import { quarterTurn } from './logo-turn.js'
@@ -139,6 +140,7 @@ const elements = {
   getRemoteSourceNetwork: document.getElementById('get-remote-source-network'),
   pickGetRemoteNetworkPathButton: document.getElementById('pick-get-remote-network-path'),
   openSettingsButton: document.getElementById('open-settings'),
+  setupBadge: document.getElementById('setup-badge'),
   closeSettingsButton: document.getElementById('close-settings'),
   settingsCard: document.getElementById('settings-card'),
   projectPath: document.getElementById('project-path'),
@@ -524,6 +526,7 @@ elements.checkEnvButton.addEventListener('click', async () => {
   setButtonBusy(elements.checkEnvButton, true)
   try {
     const diagnostics = await api.checkEnvironment()
+    showSetupBadge(diagnostics.report)
     elements.environmentOutput.hidden = false
     elements.environmentOutput.innerHTML = renderEnvironment(diagnostics)
   } catch (error) {
@@ -539,6 +542,14 @@ elements.commandOutput.addEventListener('click', (event) => {
     elements.openSettingsButton.click()
   }
 })
+
+// Red number on Setup when a basic tool is missing. Best-effort: a failed check shows nothing.
+function showSetupBadge(report) {
+  const { count, label } = setupBadge(report)
+  elements.setupBadge.hidden = count === 0
+  elements.setupBadge.textContent = String(count)
+  elements.openSettingsButton.setAttribute('aria-label', label)
+}
 
 async function refreshPrismEnvStatus() {
   const status = await api.getManagedEnvStatus()
@@ -5114,6 +5125,7 @@ function isLatestRequestToken(key, token) {
 
 // Last, and not awaited: a top-level await here would hold back every
 // listener registered above until git answers (slow on Windows).
+void api.checkEnvironment().then((d) => showSetupBadge(d.report)).catch(() => {})
 void refreshGitIdentity().then(() => {
   if (state.gitIdentity.available && !state.gitIdentity.complete) {
     openIdentityDialog()

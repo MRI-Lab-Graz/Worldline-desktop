@@ -117,10 +117,21 @@ main() {
         find_brew || die 'Homebrew was installed but brew was not found. Open a new Terminal and run this installer again.'
     }
 
+    # Where the app looks for tools when started from Finder (it does not get your shell's PATH).
+    # A tool found only elsewhere (conda, pip --user) counts as missing, so the app can always find what we install.
+    tool_path() {
+        local d
+        for d in /opt/homebrew/bin /usr/local/bin /opt/local/bin /usr/bin /bin; do
+            if [ -x "$d/$1" ]; then printf '%s\n' "$d/$1"; return 0; fi
+        done
+        return 1
+    }
+    have() { tool_path "$1" >/dev/null; }
+
     install_tools() {
         local missing=''
-        command -v git-annex >/dev/null 2>&1 || missing="$missing git-annex"
-        command -v datalad >/dev/null 2>&1 || missing="$missing datalad"
+        have git-annex || missing="$missing git-annex"
+        have datalad || missing="$missing datalad"
         if [ -z "$missing" ]; then
             log 'git-annex and datalad are already installed'
             return 0
@@ -138,9 +149,9 @@ main() {
     log 'Installed tools:'
     local tool
     for tool in git git-annex datalad; do
-        printf '  %s -> %s\n' "$tool" "$(command -v "$tool" || echo 'NOT FOUND')"
+        printf '  %s -> %s\n' "$tool" "$(tool_path "$tool" || echo 'NOT FOUND')"
     done
-    if command -v datalad >/dev/null 2>&1; then datalad --version; fi
+    if have datalad; then "$(tool_path datalad)" --version; fi
     log "Done. Open $APP_DIR/$APP_NAME. Log: $LOG_DIR/install.log"
 }
 

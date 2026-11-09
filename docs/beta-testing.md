@@ -1,4 +1,4 @@
-# Beta testing guide (0.6.0-beta.1)
+# Beta testing guide (0.6.0-beta.2)
 
 Thank you for testing Worldline Desktop. This is a **beta**: a version that is not finished and has not been used on all systems yet. It is published as a GitHub *pre-release*, so the normal download links do not give it to you; use the links below.
 
@@ -6,19 +6,19 @@ Thank you for testing Worldline Desktop. This is a **beta**: a version that is n
 
 ## Install
 
-Builds are not code-signed, so use the install script for your system. It checks the app against a SHA-256 written into the script. Release page: <https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/tag/v0.6.0-beta.1>
+Builds are not code-signed, so use the install script for your system. It checks the app against a SHA-256 written into the script. Release page: <https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/tag/v0.6.0-beta.2>
 
-- **Windows:** download [windows-install.cmd](https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.1/windows-install.cmd) and double-click it.
+- **Windows:** download [windows-install.cmd](https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.2/windows-install.cmd) and double-click it.
 - **macOS (Apple silicon only):** open Terminal and run
 
   ```bash
-  curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.1/macos-install.sh | bash
+  curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.2/macos-install.sh | bash
   ```
 
 - **Linux (64-bit Intel/AMD):** open a terminal and run
 
   ```bash
-  curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.1/linux-install.sh | bash
+  curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.2/linux-install.sh | bash
   ```
 
 To check a download yourself, get `SHA256SUMS.txt` from the same release page and run `sha256sum -c SHA256SUMS.txt --ignore-missing` (macOS: `shasum -a 256 -c SHA256SUMS.txt --ignore-missing`; Windows PowerShell: `Get-FileHash <file>` and compare by eye).

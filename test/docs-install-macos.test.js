@@ -47,7 +47,7 @@ test('install guide has a Linux section with the one-liner, where the file lands
 
 test('README and install guide give the beta macOS one-liner with the tag in the URL and warn about the old app', async () => {
   const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8')
-  const beta = /curl -fsSL https:\/\/github\.com\/MRI-Lab-Graz\/Worldline-desktop\/releases\/download\/v0\.6\.0-beta\.1\/macos-install\.sh \| bash/
+  const beta = /curl -fsSL https:\/\/github\.com\/MRI-Lab-Graz\/Worldline-desktop\/releases\/download\/v0\.6\.0-beta\.2\/macos-install\.sh \| bash/
   for (const text of [readme, doc]) {
     assert.match(text, beta)
     assert.match(text, /old version 0\.5\.5/)

@@ -1,6 +1,14 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1 (pre-release).
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2 (pre-release).
+
+## 0.6.0-beta.2 (pre-release)
+
+Fixes for the first beta, found by a tester on a Mac.
+
+- **macOS script:** it counts DataLad and git-annex as installed only where the app looks for them (Homebrew, MacPorts), so the app always finds what the script installed. Before, a copy that only your Terminal could see (conda, pip) made the script say "already installed" while the app showed them missing.
+- **Red number on Setup** when Python, DataLad or git-annex is missing, so you notice it without opening Setup.
+- Install guide and README: the beta install command and a note that GitHub's "latest release" is still the old 0.5.5.
 
 ## 0.6.0-beta.1 (pre-release)
 

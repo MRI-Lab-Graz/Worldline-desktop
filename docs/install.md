@@ -4,10 +4,10 @@ Trying the beta (a pre-release)? See the [beta testing guide](beta-testing.md).
 
 ## Recommended: install with a script
 
-> **Right now only a beta exists (0.6.0-beta.1).** GitHub's "latest release" is still the old version 0.5.5, from before the rename, which has different file names, so the `latest` links below do not work yet. If the app you installed has a name that starts with "DataLad", you got that old version. Use the tagged links in the [beta testing guide](beta-testing.md); on macOS (Apple silicon):
+> **Right now only a beta exists (0.6.0-beta.2).** GitHub's "latest release" is still the old version 0.5.5, from before the rename, which has different file names, so the `latest` links below do not work yet. If the app you installed has a name that starts with "DataLad", you got that old version. Use the tagged links in the [beta testing guide](beta-testing.md); on macOS (Apple silicon):
 >
 > ```bash
-> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.1/macos-install.sh | bash
+> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.2/macos-install.sh | bash
 > ```
 >
 > Once a stable 0.6 is released, the `latest` links work as written and this note goes away.

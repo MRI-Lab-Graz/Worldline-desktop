@@ -5057,6 +5057,7 @@ function buildFileTree(rootPath, entries) {
           absolutePath: pathMetadata.absolutePath,
           gitStatus: pathMetadata.gitStatus,
           annexPresent: pathMetadata.annexPresent,
+          locked: isLeaf ? entry.locked : undefined,
           children: new Map()
         })
       }

@@ -34,7 +34,7 @@ async function run({ script = renderInstallScript(sh, { version: VERSION, zipSha
   const release = join(dir, 'release')
   await mkdir(home)
   await mkdir(release)
-  await writeFile(join(release, `DataLad.Desktop-${VERSION}.AppImage`), image)
+  await writeFile(join(release, `Worldline-Desktop-${VERSION}.AppImage`), image)
   const file = join(dir, 'linux-install.sh')
   await writeFile(file, script)
   const fakes = await bin({ ...uname(system, machine), ...tools })

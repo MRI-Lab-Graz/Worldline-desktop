@@ -1,5 +1,7 @@
 # Install & first launch
 
+Trying the beta (a pre-release)? See the [beta testing guide](beta-testing.md).
+
 ## Recommended: install with a script
 
 The releases are not code-signed, so there is no installer to double-click. Instead a small script downloads the app,

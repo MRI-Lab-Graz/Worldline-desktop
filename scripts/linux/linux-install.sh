@@ -20,7 +20,7 @@ main() {
     local APP_VERSION='__VERSION__'
     local APP_SHA256='__ZIP_SHA256__'
     local REPO='MRI-Lab-Graz/Worldline-desktop'
-    local APP_FILE="DataLad.Desktop-${APP_VERSION}.AppImage"
+    local APP_FILE="Worldline-Desktop-${APP_VERSION}.AppImage"
     local APP_URL="https://github.com/${REPO}/releases/download/v${APP_VERSION}/${APP_FILE}"
     local APP_DIR="$HOME/Applications"
     local TARGET="$APP_DIR/Worldline-Desktop.AppImage"

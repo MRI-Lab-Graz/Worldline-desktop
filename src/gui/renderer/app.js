@@ -1126,6 +1126,8 @@ async function nestBidsCandidates(projectPath, candidatePaths, button, onProgres
         break
       }
       if (saveResult?.ok) {
+        // So the files this folder still lacks can be downloaded from the project's source later.
+        await api.linkSubdatasetSource(projectPath, candidatePath).catch(() => {})
         succeeded.push(candidatePath)
       }
     } catch (error) {
@@ -2278,6 +2280,10 @@ elements.filesOutput.addEventListener('click', async (event) => {
       void refreshWorkingTreeStatus(projectPath)
       void refreshFileBrowser(projectPath)
       return
+    }
+
+    if (saveSubResult?.ok) {
+      await api.linkSubdatasetSource(projectPath, relativePath).catch(() => {})
     }
 
     updateGlobalBusyOverlay('Saving parent project…', 2, 3)

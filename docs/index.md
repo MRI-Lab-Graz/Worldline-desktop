@@ -17,6 +17,7 @@ note, and save a step. Need data that isn't downloaded yet? One click.
 :caption: Get started
 
 install
+beta-testing
 ```
 
 ```{toctree}

@@ -104,3 +104,37 @@ test('runs windows-install.cmd from a folder whose name has spaces, &, brackets 
   assert.match(workflow, /Tom & Jerry \(test\) 100%/)
   assert.match(workflow, /\$env:ODD_DIR/)
 })
+
+const linuxJob = workflow.slice(workflow.indexOf('  install-script-linux:'))
+
+test('the Linux job builds the AppImage, renders like the release job and runs linux-install.sh --from-dir', () => {
+  assert.ok(linuxJob.length > 0, 'no install-script-linux job')
+  assert.match(linuxJob, /runs-on: ubuntu-latest/)
+  assert.match(linuxJob, /timeout-minutes: 40/)
+  const order = [
+    'npm ci',
+    'node scripts/fetch-uv.mjs x86_64-unknown-linux-gnu',
+    'npm run package:linux -- --publish=never',
+    'node scripts/render-install-script.mjs',
+    'bash "$RUNNER_TEMP/release/linux-install.sh" --from-dir'
+  ]
+  let at = -1
+  for (const step of order) {
+    const next = linuxJob.indexOf(step, at + 1)
+    assert.ok(next > at, `expected "${step}" after the previous step`)
+    at = next
+  }
+  assert.ok(linuxJob.includes('dist/linux-install.sh') === false && linuxJob.includes('scripts/linux/linux-install.sh'))
+})
+
+test('the Linux job checks the executable bit and drives the unpacked AppImage under xvfb', () => {
+  assert.match(linuxJob, /test -x "\$HOME\/Applications\/Worldline-Desktop\.AppImage"/)
+  assert.match(linuxJob, /--appimage-extract/)
+  assert.match(linuxJob, /DLAD_APP_EXECUTABLE/)
+  assert.match(linuxJob, /xvfb-run -a node --test e2e\/packaged\.e2e\.mjs/)
+})
+
+test('the Linux job uses no secrets and the workflow keeps read-only permissions', () => {
+  assert.doesNotMatch(workflow, /secrets\./)
+  assert.doesNotMatch(workflow, /contents: write/)
+})

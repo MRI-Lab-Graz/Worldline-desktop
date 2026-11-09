@@ -170,3 +170,61 @@ jobs:
       - name: Install log (on failure)
         if: failure()
         run: cat "$HOME/Library/Logs/Worldline Desktop/install.log"
+
+  install-script-linux:
+    name: linux-install.sh (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch bundled uv
+        run: node scripts/fetch-uv.mjs x86_64-unknown-linux-gnu
+
+      - name: Build the AppImage
+        run: npm run package:linux -- --publish=never
+
+      # The same rendering as the release job, into a folder the script reads with --from-dir (a release that does
+      # not exist yet cannot be downloaded from).
+      - name: Render the install script
+        run: |
+          version=$(node -p "require('./package.json').version")
+          out="$RUNNER_TEMP/release"
+          mkdir -p "$out"
+          cp "dist/Worldline-Desktop-$version.AppImage" "$out/"
+          node scripts/render-install-script.mjs "$version" "$out/Worldline-Desktop-$version.AppImage" "$out/linux-install.sh" scripts/linux/linux-install.sh
+
+      # The script only lists git-annex and DataLad when they are missing; it never needs a terminal.
+      - name: Install with linux-install.sh
+        timeout-minutes: 10
+        run: bash "$RUNNER_TEMP/release/linux-install.sh" --from-dir "$RUNNER_TEMP/release" < /dev/null
+
+      - name: Script left an executable AppImage and a menu entry
+        run: |
+          test -x "$HOME/Applications/Worldline-Desktop.AppImage"
+          grep -q '^Exec=' "$HOME/.local/share/applications/worldline-desktop.desktop"
+
+      # Runners have no FUSE, so the installed AppImage is unpacked and the unpacked app is driven. The wrapper adds
+      # --no-sandbox because the runner's Chromium sandbox is not set up for an unpacked app.
+      - name: Drive the installed app
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          unpack="$RUNNER_TEMP/unpacked"
+          mkdir -p "$unpack"
+          (cd "$unpack" && "$HOME/Applications/Worldline-Desktop.AppImage" --appimage-extract >/dev/null)
+          printf '#!/bin/sh\nexec "%s/squashfs-root/AppRun" --no-sandbox "$@"\n' "$unpack" > "$RUNNER_TEMP/worldline-desktop-run"
+          chmod +x "$RUNNER_TEMP/worldline-desktop-run"
+          export DLAD_APP_EXECUTABLE="$RUNNER_TEMP/worldline-desktop-run"
+          xvfb-run -a node --test e2e/packaged.e2e.mjs

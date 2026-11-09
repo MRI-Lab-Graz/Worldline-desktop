@@ -110,9 +110,13 @@ test('checks the zip hash before extracting it', () => {
   assert.ok(check !== -1 && extract > check)
 })
 
-test('only installs tools that are missing', () => {
-  assert.match(sh, /command -v git-annex/)
-  assert.match(sh, /command -v datalad/)
+// The app, started from Finder, only looks in these folders (src/datalad/resolve-tool.js). A tool the user's shell finds
+// elsewhere (conda, pip --user) is invisible to the app, so the script must not count it as installed.
+test('only installs tools that are missing, looking where the app looks and not in the shell PATH', () => {
+  assert.match(sh, /have git-annex/)
+  assert.match(sh, /have datalad/)
+  assert.doesNotMatch(sh, /command -v (git-annex|datalad) >\/dev\/null/)
+  for (const dir of ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']) assert.ok(sh.includes(dir), dir)
 })
 
 test('offers Homebrew through /dev/tty and prints the official command when there is no terminal', () => {

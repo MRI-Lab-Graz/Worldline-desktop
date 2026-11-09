@@ -26,7 +26,7 @@ import { quarterTurn } from './logo-turn.js'
 import { joinProjectPath, existingFolderProblem } from './project-path.js'
 import { summarizeFsck } from './integrity.js'
 import { displayCommand, isRunCommit, parseRunRecord } from './run-record.js'
-import { renderAnnexBadge } from './file-badges.js'
+import { renderActionButton, renderAnnexBadge, renderChangeMarker, renderFilesLegend } from './file-badges.js'
 import { computeSaveGating, reconcileSelection, unsavedLeftovers } from './save-gating.js'
 import { friendlyIpcError, mergeBannerModel, mergeBlockReason, mergeCandidates, mergeSelection } from './merge-ui.js'
 import { DIFF_DEFAULT_LINES, DIFF_MAX_LINES, renderDiffHtml } from './diff-view.js'
@@ -5005,7 +5005,7 @@ function renderFileListing(listing, query) {
     ? '<p class="hint">Some folders have more items than can be shown here. Use Open to browse them in your file manager.</p>'
     : ''
 
-  return `<p class="hint">Finder-style view: expand folders to load them, click Open to reveal in file manager, and watch status badges for changed items. Search covers folders you have expanded.</p>${finderHeader}${treeHtml}${truncatedNote}`
+  return `<p class="hint">Expand folders to load them. Move the mouse over a row to see what you can do with it. Search covers folders you have expanded.</p>${renderFilesLegend()}${finderHeader}${treeHtml}${truncatedNote}`
 }
 
 function buildFileTree(rootPath, entries) {
@@ -5105,16 +5105,13 @@ function renderFileTreeNodes(children, expandAll, depth) {
   const items = nodes
     .map((node) => {
       const openButton = node.absolutePath
-        ? `<button type="button" class="button button-ghost button-mini" data-entry-path="${escapeHtml(node.absolutePath)}">Open</button>`
+        ? renderActionButton({ action: 'open', label: 'Open', title: 'Show it in your file manager.' }, { 'data-entry-path': node.absolutePath })
         : ''
       const dataButtons = rowDataActions(node, { hasRemote })
-        .map(
-          ({ action, label, title }) =>
-            `<button type="button" class="button button-ghost button-mini" data-data-action="${action}" data-data-path="${escapeHtml(node.relativePath)}" title="${escapeHtml(title)}">${label}</button>`
-        )
+        .map((data) => renderActionButton(data, { 'data-data-action': data.action, 'data-data-path': node.relativePath }))
         .join('')
       const iconClass = node.type === 'directory' ? 'file-icon file-icon-folder' : 'file-icon file-icon-file'
-      const statusBadge = renderGitStatusBadge(node.gitStatus)
+      const statusBadge = renderChangeMarker(node)
       const annexBadge = renderAnnexBadge(node.annexPresent)
       const label =
         `<span class="finder-name-cell"><span class="${iconClass}" aria-hidden="true"></span>` +

@@ -414,6 +414,56 @@ export class DataLadAdapter {
     return { removed: true }
   }
 
+  // A subject folder nested into a project that was downloaded from a source (OpenNeuro's S3, ...) starts as a
+  // brand-new dataset that has never heard of that source, so its files cannot be fetched. Give it what the project
+  // already knows: the project's records of where each file lives, and the download sources the project itself uses.
+  // Only a source the project has enabled and git-annex accepted there (a special remote: it has no URL) and whose
+  // recorded settings are identical in the subject is switched on and confirmed; git-annex asks for that confirmation because settings
+  // copied from elsewhere could name another server.
+  async linkSubdatasetSource(projectPath, relativePath) {
+    if (!isSafeRelativeSubdatasetPath(relativePath)) {
+      throw new Error(`Invalid path: ${relativePath}`)
+    }
+    const sub = join(projectPath, relativePath)
+    const git = (repo, ...args) => this.runner.run('git', ['-C', repo, ...args])
+
+    const keys = await git(projectPath, 'config', '--get-regexp', '^remote\\..+\\.annex-uuid$')
+    const sources = []
+    for (const line of keys.failed ? [] : keys.stdout.split(/\r?\n/)) {
+      const match = line.match(/^remote\.(.+)\.annex-uuid (\S+)$/)
+      // Names become command arguments: a leading "-" would be read as an option.
+      if (match && /^[\w][\w.-]*$/.test(match[1]) && (await git(projectPath, 'config', '--get', `remote.${match[1]}.url`)).failed) {
+        // Only a source git-annex accepted in the project itself: the confirmation below must not be the first one.
+        const accepted = await git(projectPath, 'config', '--get', `remote.${match[1]}.annex-verified`)
+        if (/^(verified|automatic)$/.test(accepted.stdout.trim())) {
+          sources.push({ name: match[1], uuid: match[2] })
+        }
+      }
+    }
+    if (sources.length === 0) {
+      return { linked: [] }
+    }
+
+    const fetched = await git(sub, 'fetch', '-q', projectPath, 'git-annex:refs/remotes/parent/git-annex')
+    if (fetched.failed || (await git(sub, 'annex', 'merge')).failed) {
+      return { linked: [] }
+    }
+    const recorded = async (repo, uuid) =>
+      ((await git(repo, 'show', 'git-annex:remote.log')).stdout ?? '').split(/\r?\n/).find((l) => l.startsWith(`${uuid} `))
+
+    const linked = []
+    for (const { name, uuid } of sources) {
+      const settings = await recorded(projectPath, uuid)
+      if (!settings || settings !== (await recorded(sub, uuid))) continue
+      if ((await git(sub, 'annex', 'enableremote', name)).failed) continue
+      const check = await git(sub, 'annex', 'verifyremote', name)
+      const ask = `${check.stdout}\n${check.stderr}`.match(/verifyremote \S+ --safe (\d+)/)
+      if (ask && (await git(sub, 'annex', 'verifyremote', name, '--safe', ask[1])).failed) continue
+      linked.push(name)
+    }
+    return { linked }
+  }
+
   async runCommand(commandName, request = {}, runOptions = {}) {
     if (!CURATED_COMMANDS.has(commandName)) {
       throw new Error(`Unsupported command: ${commandName}`)

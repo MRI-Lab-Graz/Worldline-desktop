@@ -196,14 +196,24 @@ jobs:
             release-assets/*.cmd
             release-assets/*.sh
 
+      # A tag with a hyphen (v0.6.0-beta.1) is a pre-release: its note links to THIS tag's files, because
+      # releases/latest never points at a pre-release and would install the stable version instead.
       - name: Describe how to install and how to verify
         run: |
+          repo_url="https://github.com/${{ github.repository }}/releases"
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then base="$repo_url/download/$GITHUB_REF_NAME"; else base="$repo_url/latest/download"; fi
           {
+            if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+              echo "## This is a beta"
+              echo
+              echo "This is a pre-release. It has not been used on all systems yet. Please report problems at the [Issues](https://github.com/${{ github.repository }}/issues) page, and keep a copy of your real data before you try it."
+              echo
+            fi
             echo "## Install"
             echo
-            echo "- **Windows:** download [windows-install.cmd](https://github.com/${{ github.repository }}/releases/latest/download/windows-install.cmd) and double-click it."
-            echo "- **macOS (Apple silicon):** in Terminal run \`curl -fsSL https://github.com/${{ github.repository }}/releases/latest/download/macos-install.sh | bash\`"
-            echo "- **Linux:** in a terminal run \`curl -fsSL https://github.com/${{ github.repository }}/releases/latest/download/linux-install.sh | bash\`"
+            echo "- **Windows:** download [windows-install.cmd]($base/windows-install.cmd) and double-click it."
+            echo "- **macOS (Apple silicon):** in Terminal run \`curl -fsSL $base/macos-install.sh | bash\`"
+            echo "- **Linux:** in a terminal run \`curl -fsSL $base/linux-install.sh | bash\`"
             echo
             echo "Builds are not code-signed. The install scripts check the app against a SHA-256 written into the script itself."
             echo
@@ -220,6 +230,8 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           body_path: release-note.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ !contains(github.ref_name, '-') }}
           generate_release_notes: true
           files: |
             release-assets/*.zip

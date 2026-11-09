@@ -63,7 +63,7 @@ test('the release text and the docs link each system to its file with releases/l
   const doc = await read('docs/install.md')
   const readme = await read('README.md')
   for (const name of ['windows-install.cmd', 'macos-install.sh', 'linux-install.sh']) {
-    assert.ok(wf.includes(`releases/latest/download/${name}`), `release text lacks the link to ${name}`)
+    assert.ok(wf.includes('$repo_url/latest/download') && wf.includes(`$base/${name}`), `release text lacks the link to ${name}`)
     assert.ok(doc.includes(`releases/latest/download/${name}`), `install guide lacks the link to ${name}`)
     assert.ok(readme.includes(name), `README lacks ${name}`)
   }

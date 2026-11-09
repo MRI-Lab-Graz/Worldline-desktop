@@ -1,6 +1,30 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5.
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1 (pre-release).
+
+## 0.6.0-beta.1 (pre-release)
+
+A beta for testers. It is a GitHub **pre-release**, so it never shows up as the latest version; the install links are tied to this tag. How to try it: [beta testing guide](docs/beta-testing.md).
+
+**New**
+- **Choose data** (BIDS projects): download or free up data by subject, session, modality, task and more, with the paired side files (such as `.json`) taken along. If something fails, the panel says why in plain words, and only choices that exist for what you already picked are offered.
+- **Sync tab:** two clear actions, **Get updates** and **Send my saves**, each explained in one sentence. The same words are used everywhere in the app.
+- **Does the source accept your changes?** The app asks when you add a remote, and you can change the answer later in **Setup**. If the source does not accept changes you get a calm message instead of a Publish that cannot work.
+- **Remote settings live in Setup:** Add a Remote, Disconnect, and what is connected right now.
+- **Validator:** BIDS errors are listed first so they cannot be cut off. The validity badge is green when the project is valid, and the last result is headed **Last action**.
+- Tutorials and screenshots were refreshed, with the new logo.
+
+**Safer**
+- Getting or removing data refuses paths outside the project.
+- **Delete without a safety check** is a separate action behind a typed word and a system confirmation, offered only after the normal safety check refused.
+
+**Upgrade notes / known limits for this beta**
+- Builds are not code-signed. Use the install scripts (links in the beta guide), not a double-click on a downloaded app.
+- macOS: Apple silicon only. Windows and Linux have been tested less than macOS.
+- Subject folders that are not set up on this computer do not appear in **Choose data**.
+- **Choose data** downloads have only been tested with made-up data.
+- The app can delete local copies (**Free up space**). Keep a copy of real data while this is a beta.
+- The Linux AppImage is now named `Worldline-Desktop-<version>.AppImage` (it was `DataLad.Desktop-...`), and `linux-install.sh` expects that name.
 
 ## 0.5.5
 

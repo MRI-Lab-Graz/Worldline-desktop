@@ -1,6 +1,6 @@
 {
   "name": "worldline-desktop",
-  "version": "0.5.5",
+  "version": "0.6.0-beta.1",
   "private": true,
   "type": "module",
   "main": "src/gui/main.js",
@@ -82,6 +82,7 @@
       "target": [
         "AppImage"
       ],
+      "artifactName": "Worldline-Desktop-${version}.AppImage",
       "category": "Science",
       "icon": "src/gui/assets/icons/worldline_desktop.png"
     }

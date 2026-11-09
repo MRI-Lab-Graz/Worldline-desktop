@@ -1,9 +1,11 @@
+import { existsSync } from 'node:fs'
 import { lstat, mkdir, open, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import { formatEnvironmentDiagnostics } from './diagnostics.js'
 import { mapCommandError, MERGE_PREFLIGHT_ERRORS } from './errors.js'
 import { redactUrlCredentials } from './redact.js'
 import { ProcessRunner } from './process-runner.js'
+import { MAC_PRIVATE_BIN } from './resolve-tool.js'
 import { parseGitStatusPorcelain, parseUnmerged, parseMergeBranch } from './status.js'
 import {
   assertCommandRequest,
@@ -103,9 +105,16 @@ const BROKEN_LAUNCHER_PATTERN = /(fatal error in launcher|bad interpreter)/i
 const NO_DATASET_PATTERN = /(nodatasetfound|not a dataset|no dataset found|could not find dataset)/i
 const NO_COMMITS_PATTERN = /(does not have any commits yet|has no commits yet)/i
 
+// macOS: the python of the private environment macos-install.sh builds, when it exists.
+function macPrivatePython() {
+  const python = join(MAC_PRIVATE_BIN, 'python3')
+  return process.platform === 'darwin' && existsSync(python) ? python : null
+}
+
 export class DataLadAdapter {
-  constructor({ runner } = {}) {
+  constructor({ runner, privatePython = macPrivatePython() } = {}) {
     this.runner = runner ?? new ProcessRunner()
+    this.privatePython = privatePython
   }
 
   async checkEnvironment() {
@@ -1409,6 +1418,7 @@ export class DataLadAdapter {
 
   #pythonCandidates() {
     const candidates = [
+      ...(this.privatePython ? [{ command: this.privatePython, args: ['--version'], label: 'private python --version' }] : []),
       {
         command: 'python3',
         args: ['--version'],

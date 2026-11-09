@@ -157,3 +157,9 @@ test('the git-annex notice stays on macOS and Linux, where a package manager can
     assert.equal(n[0].tool, 'git-annex', platform)
   }
 })
+
+test('no notice for a git-annex the app installed itself (a datalad-env folder), and Homebrew is not asked about it', async () => {
+  const c = await mk({ platform: 'darwin', dir: '/Users/a/Library/Application Support/Worldline Desktop/datalad-env/bin/', latest: { dl: '1.7.2', ga: '10.20261105' } })
+  assert.deepEqual(await collectNotices(c), [])
+  assert.ok(!c.calls.includes('https://formulae.brew.sh/api/formula/git-annex.json'))
+})

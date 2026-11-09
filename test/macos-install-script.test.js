@@ -14,22 +14,24 @@ const HASH = '0'.repeat(64)
 const posix = { skip: process.platform === 'win32' && 'runs the script with bash' }
 
 // A PATH folder whose uname answers like an Apple-silicon Mac (or whatever the test says).
-async function fakeUname(system, machine) {
+async function fakeUname(system, machine, macos = '15.1') {
   const dir = await mkdtemp(join(tmpdir(), 'dlad-uname-'))
   const f = join(dir, 'uname')
   await writeFile(f, `#!/bin/sh\ncase "$1" in -s) echo ${system};; -m) echo ${machine};; esac\n`)
   await chmod(f, 0o755)
+  await writeFile(join(dir, 'sw_vers'), `#!/bin/sh\necho ${macos}\n`)
+  await chmod(join(dir, 'sw_vers'), 0o755)
   return dir
 }
 
-async function run(script, args, { system = 'Darwin', machine = 'arm64', bin = '' } = {}) {
+async function run(script, args, { system = 'Darwin', machine = 'arm64', macos = '15.1', bin = '' } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'dlad-run-'))
   const file = join(dir, 'macos-install.sh')
   await writeFile(file, script)
   const home = join(dir, 'home')
   await mkdir(home)
   const r = spawnSync('/bin/bash', [file, ...args], {
-    env: { HOME: home, PATH: `${bin}${await fakeUname(system, machine)}:${process.env.PATH}` },
+    env: { HOME: home, PATH: `${bin}${await fakeUname(system, machine, macos)}:${process.env.PATH}` },
     encoding: 'utf8'
   })
   return { ...r, home, out: `${r.stdout}${r.stderr}` }
@@ -86,6 +88,15 @@ test('a zip whose SHA-256 does not match is refused and nothing is installed', p
   assert.deepEqual(await readdir(join(r.home, 'Applications')).catch(() => []), [], 'no app, no temp folder left behind')
 })
 
+test('macOS older than 15 is refused before anything is downloaded or installed', posix, async () => {
+  const from = await mkdtemp(join(tmpdir(), 'dlad-from-'))
+  await writeFile(join(from, 'Worldline-Desktop-9.9.9-mac-arm64.zip'), 'x')
+  const r = await run(renderInstallScript(sh, { version: '9.9.9', zipSha256: HASH }), ['--from-dir', from], { macos: '14.7.1' })
+  assert.notEqual(r.status, 0)
+  assert.match(r.out, /macOS 15 or newer \(you have 14\.7\.1\)/)
+  assert.deepEqual(await readdir(join(r.home, 'Applications')).catch(() => []), [])
+})
+
 test('an unknown option is an error', posix, async () => {
   const r = await run(renderInstallScript(sh, { version: '9.9.9', zipSha256: HASH }), ['--bogus'])
   assert.notEqual(r.status, 0)
@@ -110,26 +121,31 @@ test('checks the zip hash before extracting it', () => {
   assert.ok(check !== -1 && extract > check)
 })
 
-// The app, started from Finder, only looks in these folders (src/datalad/resolve-tool.js). A tool the user's shell finds
-// elsewhere (conda, pip --user) is invisible to the app, so the script must not count it as installed.
-test('only installs tools that are missing, looking where the app looks and not in the shell PATH', () => {
-  assert.match(sh, /have git-annex/)
-  assert.match(sh, /have datalad/)
-  assert.doesNotMatch(sh, /command -v (git-annex|datalad) >\/dev\/null/)
-  for (const dir of ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']) assert.ok(sh.includes(dir), dir)
+// Nothing comes from Homebrew (it can be broken on a Mac, and it is not pinned): DataLad, git-annex and Python go into a
+// private environment inside the app's data folder, from hash-locked packages installed with the uv that ships in the app.
+test('installs Python, DataLad and git-annex into a private environment with the bundled uv, hash-locked', () => {
+  assert.doesNotMatch(sh, /\bbrew\b|Homebrew/i)
+  assert.match(sh, /Contents\/Resources"/)
+  assert.match(sh, /\$res\/uv\/uv/)
+  assert.match(sh, /datalad-requirements-macos\.txt/)
+  assert.match(sh, /Application Support\/Worldline Desktop/)
+  assert.match(sh, /datalad-env/)
+  for (const flag of ['--require-hashes', '--only-binary :all:', '--no-deps', '--managed-python', '--python 3.12']) assert.ok(sh.includes(flag), flag)
+  assert.match(sh, /UV_PYTHON_INSTALL_DIR=/)
 })
 
-test('offers Homebrew through /dev/tty and prints the official command when there is no terminal', () => {
-  assert.match(sh, /<\/dev\/tty/)
-  assert.ok(sh.includes('https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh'))
-  assert.match(sh, /no terminal/i)
+test('checks that the installed tools run, and that the macOS is new enough for the git-annex build', () => {
+  assert.match(sh, /\$venv\/bin\/datalad[^\n]*--version/)
+  assert.match(sh, /\$venv\/bin\/git-annex[^\n]*version/)
+  assert.match(sh, /sw_vers -productVersion/)
+  assert.match(sh, /macOS 15/)
 })
 
 // Under `curl | bash` the shell reads the script from stdin: a child that reads stdin would swallow the rest.
-test('runs inside main on the last line and gives brew no stdin', () => {
+test('runs inside main on the last line and gives uv no stdin', () => {
   const last = sh.trimEnd().split('\n').pop()
   assert.equal(last, 'main "$@"')
-  assert.match(sh, /brew install [^\n]*<\/dev\/null/)
+  assert.match(sh, /"\$uv" [^\n]*<\/dev\/null/)
 })
 
 test('keeps the previous app until the new one passes codesign, and restores it on failure', () => {

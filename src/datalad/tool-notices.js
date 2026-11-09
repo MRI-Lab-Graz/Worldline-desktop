@@ -33,7 +33,7 @@ async function oneNotice({ tool, name, args, feed }, { runner, fetchJson, resolv
     const path = resolve(tool)
     if (!path) return null
     // The app's own installer put this DataLad there and pins it: nothing the user can do.
-    if (tool === 'datalad' && /[\\/]datalad-env[\\/]/i.test(path)) return null
+    if (/[\\/]datalad-env[\\/]/i.test(path)) return null
     const brew = platform === 'darwin' && /\/cellar\/|\/homebrew\/|\/usr\/local\//i.test(path)
     const { url, latestOf } = feed(brew)
     const run = await runner(path, args, { timeoutMs: 15000 })

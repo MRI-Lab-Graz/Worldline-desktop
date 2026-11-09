@@ -95,7 +95,9 @@ test('the macOS job starts from a runner with no DataLad or git-annex pre-instal
 
 test('the macOS job checks the installed app, the tools and the packaged app', () => {
   assert.match(macJob, /codesign --verify/)
-  assert.match(macJob, /datalad --version/)
+  assert.match(macJob, /datalad-env\/bin/)
+  assert.match(macJob, /\/datalad" --version/)
+  assert.match(macJob, /git-annex" version/)
   assert.match(macJob, /DLAD_APP_EXECUTABLE/)
 })
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { renderInstallScript } from '../scripts/render-install-script.mjs'
 
-// A beta ships as a GitHub pre-release: tag v0.6.0-beta.2, never "latest". Source-reading tests normalise CRLF.
+// A beta ships as a GitHub pre-release: tag v0.6.0-beta.3, never "latest". Source-reading tests normalise CRLF.
 const read = async (p) => (await readFile(new URL(`../${p}`, import.meta.url), 'utf8')).replace(/\r\n/g, '\n')
 const pkg = JSON.parse(await read('package.json'))
 const lock = JSON.parse(await read('package-lock.json'))
@@ -17,13 +17,13 @@ test('the package version is valid semver and package-lock agrees', () => {
 })
 
 test('this branch is the first 0.6.0 beta', () => {
-  assert.equal(pkg.version, '0.6.0-beta.2')
+  assert.equal(pkg.version, '0.6.0-beta.3')
 })
 
 for (const [name, file] of [['macos-install.sh', 'scripts/macos/macos-install.sh'], ['linux-install.sh', 'scripts/linux/linux-install.sh'], ['windows-install.cmd', 'scripts/windows/windows-install.cmd']]) {
   test(`${name} rendered for a beta pins the beta and downloads from that tag, not from latest`, async () => {
     const out = renderInstallScript(await read(file), { version: pkg.version, zipSha256: HASH })
-    assert.ok(out.includes('0.6.0-beta.2'))
+    assert.ok(out.includes('0.6.0-beta.3'))
     assert.match(out, /releases\/download\/v(\$\{APP_VERSION\}|\$AppVersion)\//)
     // "latest" survives only in the template hand-over, which a rendered script never reaches (its version no longer starts with __)
     assert.doesNotMatch(out, /\$AppVersion = '__|APP_VERSION='__/)

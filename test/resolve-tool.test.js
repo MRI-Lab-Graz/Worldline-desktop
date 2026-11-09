@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, writeFile, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, delimiter } from 'node:path'
-import { resolveTool, withToolDirs } from '../src/datalad/resolve-tool.js'
+import { resolveTool, withToolDirs, MAC_PRIVATE_BIN } from '../src/datalad/resolve-tool.js'
 
 async function fakeTool(dir, file) {
   await mkdir(dir, { recursive: true })
@@ -95,14 +95,25 @@ test('resolveTool defaults extraDirs to the Homebrew/MacPorts folders (absolute 
 })
 
 // A Finder launch gives the app PATH=/usr/bin:/bin:...; datalad is found by absolute path but then runs `git annex`,
-// which needs git-annex on PATH. So children get the Homebrew/MacPorts folders appended (never in front).
-test('withToolDirs appends the Homebrew and MacPorts folders on macOS, after the existing PATH, without repeats', () => {
+// which needs git-annex on PATH. So children get the private environment in front and the Homebrew/MacPorts folders appended.
+test('withToolDirs puts the private environment first and appends the Homebrew and MacPorts folders on macOS, without repeats', () => {
   const env = withToolDirs({ PATH: '/usr/bin:/bin:/usr/local/bin' }, 'darwin')
-  assert.equal(env.PATH, '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin:/opt/local/bin')
-  assert.equal(withToolDirs({}, 'darwin').PATH, '/opt/homebrew/bin:/usr/local/bin:/opt/local/bin')
+  assert.equal(env.PATH, `${MAC_PRIVATE_BIN}:/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin:/opt/local/bin`)
+  assert.equal(withToolDirs({}, 'darwin').PATH, `${MAC_PRIVATE_BIN}:/opt/homebrew/bin:/usr/local/bin:/opt/local/bin`)
 })
 
 test('withToolDirs leaves Windows and Linux alone', () => {
   assert.deepEqual(withToolDirs({ Path: 'C:\\x' }, 'win32'), { Path: 'C:\\x' })
   assert.deepEqual(withToolDirs({ PATH: '/usr/bin' }, 'linux'), { PATH: '/usr/bin' })
+})
+
+// The install script puts Python, DataLad and git-annex in a private environment (see macos-install.sh). It goes first,
+// so a broken Homebrew or conda copy of the same tool cannot win.
+test('the private macOS environment is where the install script puts it, and wins over PATH', async () => {
+  assert.match(MAC_PRIVATE_BIN, /Library[\\/]Application Support[\\/]Worldline Desktop[\\/]datalad-env[\\/]bin$/)
+  const root = await mkdtemp(join(tmpdir(), 'rt-'))
+  const ours = await fakeTool(join(root, 'private'), 'mytool')
+  await fakeTool(join(root, 'path'), 'mytool')
+  assert.equal(resolveTool('mytool', { pathEnv: join(root, 'path'), platform: 'darwin', privateDirs: [join(root, 'private')] }), ours)
+  assert.equal(resolveTool('mytool', { pathEnv: join(root, 'path'), platform: 'linux', privateDirs: [join(root, 'private')] }), join(root, 'path', 'mytool'))
 })

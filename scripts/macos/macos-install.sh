@@ -21,10 +21,10 @@ main() {
     local REPO='MRI-Lab-Graz/Worldline-desktop'
     local APP_ZIP_NAME="Worldline-Desktop-${APP_VERSION}-mac-arm64.zip"
     local APP_ZIP_URL="https://github.com/${REPO}/releases/download/v${APP_VERSION}/${APP_ZIP_NAME}"
-    local BREW_INSTALL_URL='https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh'
     local APP_NAME='Worldline Desktop.app'
     local APP_DIR="$HOME/Applications"
     local LOG_DIR="$HOME/Library/Logs/Worldline Desktop"
+    local DATA_DIR="$HOME/Library/Application Support/Worldline Desktop"   # the app's own data folder; it looks for datalad-env here
     local from_dir=''
 
     die() { echo "ERROR: $*" >&2; exit 1; }
@@ -91,67 +91,40 @@ main() {
         log "Installed $target"
     }
 
-    find_brew() {
-        command -v brew >/dev/null 2>&1 && return 0
-        if [ -x /opt/homebrew/bin/brew ]; then
-            eval "$(/opt/homebrew/bin/brew shellenv)"
-            return 0
-        fi
-        return 1
+    # The git-annex build we pin (a PyPI wheel) needs macOS 15. Checked before anything is installed.
+    check_macos() {
+        local major
+        major=$(sw_vers -productVersion | cut -d. -f1)
+        [ "$major" -ge 15 ] 2>/dev/null ||
+            die "This version needs macOS 15 or newer (you have $(sw_vers -productVersion)). Nothing was installed."
     }
 
-    ensure_brew() {
-        find_brew && return 0
-        local cmd="/bin/bash -c \"\$(curl -fsSL $BREW_INSTALL_URL)\""
-        if ! { : </dev/tty; } 2>/dev/null; then
-            die "Homebrew is not installed and there is no terminal to ask you. Install it with:  $cmd  then run this installer again."
-        fi
-        printf 'Homebrew is not installed. It provides git-annex and DataLad. Install it now? [y/N] ' >/dev/tty
-        local answer
-        read -r answer </dev/tty || answer=n
-        case "$answer" in
-            [yY]*) log 'Running the Homebrew installer (not pinned or hash-checked by us)'
-                   /bin/bash -c "$(curl -fsSL "$BREW_INSTALL_URL")" </dev/tty ;;
-            *) die "Homebrew is needed. Install it with:  $cmd  then run this installer again." ;;
-        esac
-        find_brew || die 'Homebrew was installed but brew was not found. Open a new Terminal and run this installer again.'
+    # Python, DataLad and git-annex go into a private environment next to the app's data, from hash-locked packages,
+    # installed with the uv that ships inside the app. Nothing from the system Python or another package manager is used.
+    install_env() {
+        local res="$APP_DIR/$APP_NAME/Contents/Resources"
+        local uv="$res/uv/uv" req="$res/datalad-requirements-macos.txt" venv="$DATA_DIR/datalad-env"
+        [ -x "$uv" ] && [ -f "$req" ] || die "The app is missing its installer files ($uv, $req)."
+        mkdir -p "$DATA_DIR"
+        export UV_PYTHON_INSTALL_DIR="$DATA_DIR/python"
+        UV_CACHE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/dlad-uv-cache.XXXXXX")
+        export UV_CACHE_DIR
+        log 'Installing Python, DataLad and git-annex (needs internet; every package is checked against a hash)'
+        "$uv" venv --clear --no-config --managed-python --python 3.12 "$venv" </dev/null ||
+            die 'Could not create the DataLad environment.'
+        "$uv" pip install --no-config --python "$venv" --link-mode copy --index-url https://pypi.org/simple \
+            --require-hashes --only-binary :all: --no-deps -r "$req" </dev/null ||
+            die 'Could not install DataLad and git-annex.'
+        rm -rf "$UV_CACHE_DIR"
+        "$venv/bin/datalad" --version || die 'DataLad was installed but "datalad --version" does not run.'
+        "$venv/bin/git-annex" version | head -1 || die 'git-annex was installed but does not run.'
     }
 
-    # Where the app looks for tools when started from Finder (it does not get your shell's PATH).
-    # A tool found only elsewhere (conda, pip --user) counts as missing, so the app can always find what we install.
-    tool_path() {
-        local d
-        for d in /opt/homebrew/bin /usr/local/bin /opt/local/bin /usr/bin /bin; do
-            if [ -x "$d/$1" ]; then printf '%s\n' "$d/$1"; return 0; fi
-        done
-        return 1
-    }
-    have() { tool_path "$1" >/dev/null; }
-
-    install_tools() {
-        local missing=''
-        have git-annex || missing="$missing git-annex"
-        have datalad || missing="$missing datalad"
-        if [ -z "$missing" ]; then
-            log 'git-annex and datalad are already installed'
-            return 0
-        fi
-        ensure_brew
-        log "brew install$missing"
-        # shellcheck disable=SC2086  # word splitting of the package list is intended
-        brew install $missing </dev/null
-    }
-
+    check_macos
     install_app
     git --version >/dev/null 2>&1 || die 'git is missing. Run  xcode-select --install  and run this installer again.'
-    install_tools
+    install_env
 
-    log 'Installed tools:'
-    local tool
-    for tool in git git-annex datalad; do
-        printf '  %s -> %s\n' "$tool" "$(tool_path "$tool" || echo 'NOT FOUND')"
-    done
-    if have datalad; then "$(tool_path datalad)" --version; fi
     log "Done. Open $APP_DIR/$APP_NAME. Log: $LOG_DIR/install.log"
 }
 

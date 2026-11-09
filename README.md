@@ -55,10 +55,10 @@ across nested sub-projects? The app shows you exactly what changed and where.
 
 ## Download & Install
 
-> **Right now only a beta exists (0.6.0-beta.2).** The "latest release" on GitHub is still the old version 0.5.5, from before the rename, which uses different file names. If the app you installed has a name that starts with "DataLad", you got that old one. On macOS (Apple silicon) open Terminal and run:
+> **Right now only a beta exists (0.6.0-beta.3).** The "latest release" on GitHub is still the old version 0.5.5, from before the rename, which uses different file names. If the app you installed has a name that starts with "DataLad", you got that old one. On macOS (Apple silicon) open Terminal and run:
 >
 > ```bash
-> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.2/macos-install.sh | bash
+> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.3/macos-install.sh | bash
 > ```
 >
 > Windows and Linux: see the [beta testing guide](https://worldline-desktop.readthedocs.io/en/latest/beta-testing.html).

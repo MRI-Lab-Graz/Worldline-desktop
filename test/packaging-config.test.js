@@ -37,6 +37,7 @@ test('uv is bundled for every build target with a pinned SHA-256', async () => {
   assert.deepEqual(pkg.build.extraResources, [
     { from: 'build/uv', to: 'uv' },
     { from: 'build/datalad-requirements.txt', to: 'datalad-requirements.txt' },
+    { from: 'build/datalad-requirements-macos.txt', to: 'datalad-requirements-macos.txt' },
     { from: 'build/prism-requirements.txt', to: 'prism-requirements.txt' },
     { from: 'build/git-hooks', to: 'git-hooks' }
   ])

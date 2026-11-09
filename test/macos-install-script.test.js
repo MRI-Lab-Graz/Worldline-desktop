@@ -110,26 +110,31 @@ test('checks the zip hash before extracting it', () => {
   assert.ok(check !== -1 && extract > check)
 })
 
-// The app, started from Finder, only looks in these folders (src/datalad/resolve-tool.js). A tool the user's shell finds
-// elsewhere (conda, pip --user) is invisible to the app, so the script must not count it as installed.
-test('only installs tools that are missing, looking where the app looks and not in the shell PATH', () => {
-  assert.match(sh, /have git-annex/)
-  assert.match(sh, /have datalad/)
-  assert.doesNotMatch(sh, /command -v (git-annex|datalad) >\/dev\/null/)
-  for (const dir of ['/opt/homebrew/bin', '/usr/local/bin', '/opt/local/bin']) assert.ok(sh.includes(dir), dir)
+// Nothing comes from Homebrew (it can be broken on a Mac, and it is not pinned): DataLad, git-annex and Python go into a
+// private environment inside the app's data folder, from hash-locked packages installed with the uv that ships in the app.
+test('installs Python, DataLad and git-annex into a private environment with the bundled uv, hash-locked', () => {
+  assert.doesNotMatch(sh, /\bbrew\b|Homebrew/i)
+  assert.match(sh, /Contents\/Resources"/)
+  assert.match(sh, /\$res\/uv\/uv/)
+  assert.match(sh, /datalad-requirements-macos\.txt/)
+  assert.match(sh, /Application Support\/Worldline Desktop/)
+  assert.match(sh, /datalad-env/)
+  for (const flag of ['--require-hashes', '--only-binary :all:', '--no-deps', '--managed-python', '--python 3.12']) assert.ok(sh.includes(flag), flag)
+  assert.match(sh, /UV_PYTHON_INSTALL_DIR=/)
 })
 
-test('offers Homebrew through /dev/tty and prints the official command when there is no terminal', () => {
-  assert.match(sh, /<\/dev\/tty/)
-  assert.ok(sh.includes('https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh'))
-  assert.match(sh, /no terminal/i)
+test('checks that the installed tools run, and that the macOS is new enough for the git-annex build', () => {
+  assert.match(sh, /\$venv\/bin\/datalad[^\n]*--version/)
+  assert.match(sh, /\$venv\/bin\/git-annex[^\n]*version/)
+  assert.match(sh, /sw_vers -productVersion/)
+  assert.match(sh, /macOS 15/)
 })
 
 // Under `curl | bash` the shell reads the script from stdin: a child that reads stdin would swallow the rest.
-test('runs inside main on the last line and gives brew no stdin', () => {
+test('runs inside main on the last line and gives uv no stdin', () => {
   const last = sh.trimEnd().split('\n').pop()
   assert.equal(last, 'main "$@"')
-  assert.match(sh, /brew install [^\n]*<\/dev\/null/)
+  assert.match(sh, /"\$uv" [^\n]*<\/dev\/null/)
 })
 
 test('keeps the previous app until the new one passes codesign, and restores it on failure', () => {

@@ -1,6 +1,11 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2 (pre-release).
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release).
+
+## 0.6.0-beta.3 (pre-release)
+
+- **macOS install without Homebrew:** the script builds a private environment with its own Python 3.12, DataLad and git-annex (hash-locked packages, installed with the `uv` inside the app), so nothing can be missing and a broken Homebrew does not matter. The app looks there first. Needs macOS 15 or newer.
+- Programs the app starts on macOS can now find git-annex even when the app was opened from Finder.
 
 ## 0.6.0-beta.2 (pre-release)
 

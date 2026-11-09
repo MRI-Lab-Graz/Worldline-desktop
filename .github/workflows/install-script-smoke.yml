@@ -149,7 +149,7 @@ jobs:
           ditto -c -k --keepParent "dist/mac-arm64/Worldline Desktop.app" "$zip"
           node scripts/render-install-script.mjs "$version" "$zip" "$out/macos-install.sh" scripts/macos/macos-install.sh
 
-      # No terminal on the runner: Homebrew is already there, so the prompt is never reached.
+      # The script builds its own Python/DataLad/git-annex environment with the uv inside the app; no terminal is needed.
       - name: Install with macos-install.sh
         timeout-minutes: 25
         run: bash "$RUNNER_TEMP/release/macos-install.sh" --from-dir "$RUNNER_TEMP/release" < /dev/null
@@ -158,9 +158,10 @@ jobs:
         run: |
           codesign --verify --deep --strict "$HOME/Applications/Worldline Desktop.app"
           if xattr "$HOME/Applications/Worldline Desktop.app" | grep -q com.apple.quarantine; then echo 'quarantine flag present'; exit 1; fi
-          git --version
-          datalad --version
-          git annex version
+          env_bin="$HOME/Library/Application Support/Worldline Desktop/datalad-env/bin"
+          "$env_bin/datalad" --version
+          "$env_bin/git-annex" version | head -1
+          "$env_bin/python" --version
 
       - name: Drive the installed app
         run: |

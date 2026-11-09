@@ -3025,3 +3025,14 @@ test('a remote the app added itself counts as one you can publish to', async () 
   await new DataLadAdapter({ runner }).trackRemote('/p', 'backup')
   assert.ok(runner.calls.some((c) => c.args.join(' ') === '-C /p config --local worldline.sourceAccepts yes'))
 })
+
+// macOS: the install script's private Python wins over the system python3 (Apple's is 3.9).
+test('checkEnvironment reports the private environment Python when there is one, not the system python3', async () => {
+  const runner = new FakeRunner()
+  runner.set('/env/bin/python3', ['--version'], { stdout: 'Python 3.12.13\n' })
+  runner.set('python3', ['--version'], { stdout: 'Python 3.9.6\n' })
+  runner.set('datalad', ['--version'], { stdout: 'datalad 1.8.0\n' })
+  runner.set('git', ['annex', 'version'], { stdout: 'git-annex version: 10.20261026\n' })
+  const diagnostics = await new DataLadAdapter({ runner, privatePython: '/env/bin/python3' }).checkEnvironment()
+  assert.equal(diagnostics.python.version, 'Python 3.12.13')
+})

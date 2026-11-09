@@ -4,10 +4,10 @@ Trying the beta (a pre-release)? See the [beta testing guide](beta-testing.md).
 
 ## Recommended: install with a script
 
-> **Right now only a beta exists (0.6.0-beta.2).** GitHub's "latest release" is still the old version 0.5.5, from before the rename, which has different file names, so the `latest` links below do not work yet. If the app you installed has a name that starts with "DataLad", you got that old version. Use the tagged links in the [beta testing guide](beta-testing.md); on macOS (Apple silicon):
+> **Right now only a beta exists (0.6.0-beta.3).** GitHub's "latest release" is still the old version 0.5.5, from before the rename, which has different file names, so the `latest` links below do not work yet. If the app you installed has a name that starts with "DataLad", you got that old version. Use the tagged links in the [beta testing guide](beta-testing.md); on macOS (Apple silicon):
 >
 > ```bash
-> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.2/macos-install.sh | bash
+> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.3/macos-install.sh | bash
 > ```
 >
 > Once a stable 0.6 is released, the `latest` links work as written and this note goes away.
@@ -29,7 +29,7 @@ checks it against a checksum written into the script itself, and sets everything
 > internet connection during setup; every download's checksum is verified before it runs). If a download is blocked by
 > your network, install the missing piece manually; the app's diagnostics screen tells you exactly what's still missing.
 >
-> **macOS script:** installs git-annex and DataLad with Homebrew when they are missing (see below).
+> **macOS script:** installs Python, DataLad and git-annex into a private folder, so nothing else has to be installed first and Homebrew is not used (macOS 15 or newer; see below).
 >
 > **Linux script:** installs the app only. To use DataLad-specific actions (Get on a file, Get all not-downloaded, Get updates, Send my saves) on a project,
 > Git, DataLad, and git-annex need to be installed on your system first; the script prints the command for your
@@ -72,13 +72,15 @@ curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/latest/dow
 
 Prefer to read it first? Download `macos-install.sh` from the release page, then run `bash macos-install.sh`.
 
-The script checks the app's SHA-256 against the value baked into it, installs the app to `~/Applications`, and
-installs git-annex and DataLad with Homebrew when they are missing. If Homebrew itself is missing it asks before
-running Homebrew's own installer (which asks for your password). Run the script again any time to update or repair.
-The log is `~/Library/Logs/Worldline Desktop/install.log`. Intel Macs have no prebuilt app; run it
+The script checks the app's SHA-256 against the value baked into it and installs the app to `~/Applications`. It then
+builds a private environment in `~/Library/Application Support/Worldline Desktop` with its own Python 3.12, DataLad and
+git-annex (hash-locked packages, installed with the `uv` inside the app; this needs internet and macOS 15 or newer).
+Nothing from Homebrew, conda or Apple's Python is used, and the app looks there first, so a broken copy elsewhere on
+your Mac cannot get in the way. Run the script again any time to update or repair. The log is
+`~/Library/Logs/Worldline Desktop/install.log`. Intel Macs have no prebuilt app; run it
 [from source](#advanced-install-from-source).
 
-To uninstall: `rm -rf "$HOME/Applications/Worldline Desktop.app"` (Homebrew's packages stay).
+To uninstall: `rm -rf "$HOME/Applications/Worldline Desktop.app" "$HOME/Library/Application Support/Worldline Desktop/datalad-env" "$HOME/Library/Application Support/Worldline Desktop/python"` (your projects and settings stay).
 
 ## Linux: install with a script
 

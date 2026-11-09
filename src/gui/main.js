@@ -302,6 +302,11 @@ handle('adapter:untrackPath', async (_event, payload = {}) => {
   return adapter.untrackPath(payload.projectPath, payload.relativePath)
 })
 
+handle('adapter:linkSubdatasetSource', async (_event, payload = {}) => {
+  requireAuthorizedRoot(payload.projectPath)
+  return adapter.linkSubdatasetSource(payload.projectPath, payload.relativePath)
+})
+
 handle('adapter:resolveConflict', async (_event, payload = {}) => {
   requireAuthorizedRoot(payload.projectPath)
   return adapter.resolveConflict(payload.projectPath, payload.path, payload.side)

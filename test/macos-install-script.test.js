@@ -14,22 +14,24 @@ const HASH = '0'.repeat(64)
 const posix = { skip: process.platform === 'win32' && 'runs the script with bash' }
 
 // A PATH folder whose uname answers like an Apple-silicon Mac (or whatever the test says).
-async function fakeUname(system, machine) {
+async function fakeUname(system, machine, macos = '15.1') {
   const dir = await mkdtemp(join(tmpdir(), 'dlad-uname-'))
   const f = join(dir, 'uname')
   await writeFile(f, `#!/bin/sh\ncase "$1" in -s) echo ${system};; -m) echo ${machine};; esac\n`)
   await chmod(f, 0o755)
+  await writeFile(join(dir, 'sw_vers'), `#!/bin/sh\necho ${macos}\n`)
+  await chmod(join(dir, 'sw_vers'), 0o755)
   return dir
 }
 
-async function run(script, args, { system = 'Darwin', machine = 'arm64', bin = '' } = {}) {
+async function run(script, args, { system = 'Darwin', machine = 'arm64', macos = '15.1', bin = '' } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'dlad-run-'))
   const file = join(dir, 'macos-install.sh')
   await writeFile(file, script)
   const home = join(dir, 'home')
   await mkdir(home)
   const r = spawnSync('/bin/bash', [file, ...args], {
-    env: { HOME: home, PATH: `${bin}${await fakeUname(system, machine)}:${process.env.PATH}` },
+    env: { HOME: home, PATH: `${bin}${await fakeUname(system, machine, macos)}:${process.env.PATH}` },
     encoding: 'utf8'
   })
   return { ...r, home, out: `${r.stdout}${r.stderr}` }
@@ -84,6 +86,15 @@ test('a zip whose SHA-256 does not match is refused and nothing is installed', p
   assert.notEqual(r.status, 0)
   assert.match(r.out, /SHA-256/)
   assert.deepEqual(await readdir(join(r.home, 'Applications')).catch(() => []), [], 'no app, no temp folder left behind')
+})
+
+test('macOS older than 15 is refused before anything is downloaded or installed', posix, async () => {
+  const from = await mkdtemp(join(tmpdir(), 'dlad-from-'))
+  await writeFile(join(from, 'Worldline-Desktop-9.9.9-mac-arm64.zip'), 'x')
+  const r = await run(renderInstallScript(sh, { version: '9.9.9', zipSha256: HASH }), ['--from-dir', from], { macos: '14.7.1' })
+  assert.notEqual(r.status, 0)
+  assert.match(r.out, /macOS 15 or newer \(you have 14\.7\.1\)/)
+  assert.deepEqual(await readdir(join(r.home, 'Applications')).catch(() => []), [])
 })
 
 test('an unknown option is an error', posix, async () => {

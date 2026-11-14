@@ -3078,3 +3078,51 @@ test('getDeletionRisk does not start git-annex in a plain git project: no annex.
   assert.equal(risk.onlyHereCount, 0)
   assert.equal(runner.calls.some((call) => call.args.includes('annex')), false)
 })
+
+async function nestedProject(prefix, { installed = true } = {}) {
+  const root = await mkdtemp(join(tmpdir(), prefix))
+  await writeFile(join(root, '.gitmodules'), '[submodule "sub-A"]\n\tpath = sub-A\n\turl = ../sub-A.git\n')
+  if (installed) {
+    await mkdir(join(root, 'sub-A', '.git'), { recursive: true })
+  } else {
+    await mkdir(join(root, 'sub-A'))
+  }
+  const runner = new FakeRunner()
+  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { stdout: 'true\n' })
+  runner.set('git', ['-C', root, 'status', '--porcelain'], { stdout: '' })
+  runner.set('git', ['-C', root, 'config', '--get', 'annex.uuid'], { exitCode: 1, failed: true })
+  return { root, sub: join(root, 'sub-A'), runner }
+}
+
+test('getDeletionRisk also counts what is only in the nested datasets (BIDS subjects)', async () => {
+  const { root, sub, runner } = await nestedProject('dlad-risk-nested-')
+  runner.set('git', ['-C', sub, 'status', '--porcelain'], { stdout: ' M a.txt\n' })
+  runner.set('git', ['-C', sub, 'config', '--get', 'annex.uuid'], { stdout: 'abc\n' })
+  runner.set('git', ['-C', sub, 'annex', 'find', '--in', 'here', '--not', '--copies', '2'], { stdout: 'x.nii\ny.nii\n' })
+  const adapter = new DataLadAdapter({ runner })
+
+  const risk = await adapter.getDeletionRisk(root)
+
+  assert.deepEqual(risk, { hasRemote: false, unsavedChanges: 1, unsentSaves: null, onlyHereCount: 2 })
+})
+
+test('getDeletionRisk skips a nested dataset that is not installed (its folder would answer for the parent)', async () => {
+  const { root, sub, runner } = await nestedProject('dlad-risk-uninstalled-', { installed: false })
+  const adapter = new DataLadAdapter({ runner })
+
+  const risk = await adapter.getDeletionRisk(root)
+
+  assert.deepEqual(risk, { hasRemote: false, unsavedChanges: 0, unsentSaves: null, onlyHereCount: 0 })
+  assert.equal(runner.calls.some((call) => call.args[1] === sub), false)
+})
+
+test('getDeletionRisk: a nested dataset that cannot be checked makes the answer "unknown", never "none"', async () => {
+  const { root, runner } = await nestedProject('dlad-risk-nested-fail-')
+  // nothing mocked for sub-A: every command there fails
+  const adapter = new DataLadAdapter({ runner })
+
+  const risk = await adapter.getDeletionRisk(root)
+
+  assert.equal(risk.unsavedChanges, null)
+  assert.equal(risk.onlyHereCount, null)
+})

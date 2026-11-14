@@ -16,14 +16,14 @@ const UNLOCK = {
 }
 
 /**
- * @param {{ type: 'file'|'directory', annexPresent?: boolean|'partial'|null }} node
+ * @param {{ type: 'file'|'directory', annexPresent?: boolean|'partial'|null, locked?: boolean }} node  locked: still a link into the annex; only then is Unlock offered
  * @param {{ hasRemote?: boolean }} [options]
  * @returns {Array<{ action: 'get'|'drop'|'unlock', label: string, title: string }>}
  */
-export function rowDataActions({ type, annexPresent }, { hasRemote = false } = {}) {
+export function rowDataActions({ type, annexPresent, locked }, { hasRemote = false } = {}) {
   if (annexPresent === null || annexPresent === undefined) return []
   // Without a remote there is no other copy, so freeing space can never succeed: do not offer it.
   const drop = hasRemote && DROP
   if (type === 'directory') return [annexPresent !== true && GET, annexPresent !== false && drop].filter(Boolean)
-  return annexPresent === false ? [GET] : annexPresent === true ? [drop, UNLOCK].filter(Boolean) : []
+  return annexPresent === false ? [GET] : annexPresent === true ? [drop, locked === true && UNLOCK].filter(Boolean) : []
 }

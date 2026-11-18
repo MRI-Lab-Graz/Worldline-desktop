@@ -16,6 +16,7 @@ import {
   describeActionNote, describeGetAll, canRunReckless, describeRecklessDialog, isDeleteWord, needsRecklessOffer, panelMatchesProject, planGetAll, planPaths,
   runSelectedBatches, runStillCurrent, startSequence
 } from './data-actions.js'
+import { openNeuroRepoAddress } from './openneuro-url.js'
 import { deleteRefusedNote, describeDeletionRisk, describeFolderSize, projectNameMatches, withoutProject } from './delete-project-view.js'
 import { previewPaths } from './reckless-preview.js'
 import { escapeHtml } from './escape-html.js'
@@ -139,6 +140,9 @@ const elements = {
   getRemoteUrlPanel: document.getElementById('get-remote-url-panel'),
   getRemoteNetworkPanel: document.getElementById('get-remote-network-panel'),
   getRemoteSourceUrl: document.getElementById('get-remote-source-url'),
+  getRemoteUrlSuggestion: document.getElementById('get-remote-url-suggestion'),
+  getRemoteUrlSuggestionText: document.getElementById('get-remote-url-suggestion-text'),
+  getRemoteUrlUse: document.getElementById('get-remote-url-use'),
   getRemoteSourceNetwork: document.getElementById('get-remote-source-network'),
   pickGetRemoteNetworkPathButton: document.getElementById('pick-get-remote-network-path'),
   openSettingsButton: document.getElementById('open-settings'),
@@ -723,6 +727,21 @@ elements.closeToolsButton.addEventListener('click', () => showHome({ focus: true
 new MutationObserver(() => {
   elements.lastActionDetails.open = true
 }).observe(elements.commandOutput, { childList: true, characterData: true, subtree: true })
+
+// A pasted OpenNeuro web page address cannot be cloned. Suggest the repository address; the user decides.
+let suggestedRemoteAddress = null
+elements.getRemoteSourceUrl.addEventListener('input', () => {
+  suggestedRemoteAddress = openNeuroRepoAddress(elements.getRemoteSourceUrl.value)
+  elements.getRemoteUrlSuggestion.hidden = !suggestedRemoteAddress
+  elements.getRemoteUrlSuggestionText.textContent = suggestedRemoteAddress
+    ? `That is the OpenNeuro web page. The repository address is ${suggestedRemoteAddress}.`
+    : ''
+})
+elements.getRemoteUrlUse.addEventListener('click', () => {
+  if (!suggestedRemoteAddress) return
+  elements.getRemoteSourceUrl.value = suggestedRemoteAddress
+  elements.getRemoteSourceUrl.dispatchEvent(new Event('input'))
+})
 
 function updateGetRemoteMode() {
   const isUrl = elements.getRemoteModeUrlRadio.checked

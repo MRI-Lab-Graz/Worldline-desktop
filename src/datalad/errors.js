@@ -1,3 +1,4 @@
+import { openNeuroRepoAddress } from '../gui/renderer/openneuro-url.js'
 const DEFAULT_ERROR = {
   code: 'UNKNOWN',
   title: 'DataLad command failed',
@@ -254,11 +255,13 @@ export function mapCommandError(commandName, runResult) {
     commandName === 'cloneInstall' &&
     hasPattern(`${stdout}\n${stderr}`, /not found|no such repository|repository.*not found|failed to clone/)
   ) {
+    const repoAddress = (runResult.args ?? []).map(openNeuroRepoAddress).find(Boolean)
     return {
       code: 'REPO_NOT_FOUND',
       title: 'Repository not found',
-      message:
-        'DataLad could not find a repository at the provided URL. Check that the URL is correct and the repository is publicly accessible.',
+      message: repoAddress
+        ? `That is the OpenNeuro web page, not a repository address. Use this address instead: ${repoAddress}`
+        : 'DataLad could not find a repository at the provided URL. Check that the URL is correct and the repository is publicly accessible.',
       technicalDetails: details || stdout.trim()
     }
   }

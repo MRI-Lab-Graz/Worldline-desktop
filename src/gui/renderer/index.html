@@ -303,7 +303,11 @@
                   <span>Remote URL</span>
                   <input id="get-remote-source-url" type="text" placeholder="https://…" />
                 </label>
-                <p class="hint-inline">Accepts an https:// or gin: URL.</p>
+                <p class="hint-inline">Paste a repository address (github.com/…, gin:…, or one ending in .git), not a web page.</p>
+                <p id="get-remote-url-suggestion" class="hint-inline" role="status" hidden>
+                  <span id="get-remote-url-suggestion-text"></span>
+                  <button id="get-remote-url-use" class="button button-ghost button-mini" type="button">Use this address</button>
+                </p>
               </div>
 
               <div id="get-remote-network-panel" hidden>

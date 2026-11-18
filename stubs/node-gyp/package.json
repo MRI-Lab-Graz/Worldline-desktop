@@ -1,0 +1,6 @@
+{
+  "name": "node-gyp",
+  "version": "12.4.0",
+  "private": true,
+  "description": "Empty stand-in. Worldline Desktop has no native modules, so electron-builder never compiles anything; see test/node-gyp-stub.test.js."
+}

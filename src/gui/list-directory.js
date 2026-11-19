@@ -3,6 +3,8 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { buildGitStatusMap } from '../datalad/status.js'
 
 const IGNORED_FOLDERS = new Set(['.git', '.datalad', '.github', 'node_modules'])
+// Operating-system noise: the app already keeps these out of saves, so the browser does not list them either.
+const IGNORED_FILES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini'])
 const DEFAULT_MAX_ENTRIES = 2000
 
 const toPosix = (path) => path.split(sep).join('/')
@@ -47,6 +49,7 @@ export async function listDirectory({ rootPath, dirPath = rootPath, run, maxEntr
 
   const children = (await readdir(dir, { withFileTypes: true }))
     .filter((child) => !(child.isDirectory() && IGNORED_FOLDERS.has(child.name)))
+    .filter((child) => child.isDirectory() || !IGNORED_FILES.has(child.name))
     .sort((left, right) => left.name.localeCompare(right.name))
   const truncated = children.length > maxEntries
   const shown = children.slice(0, maxEntries)

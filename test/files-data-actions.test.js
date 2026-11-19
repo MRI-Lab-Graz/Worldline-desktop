@@ -13,11 +13,12 @@ test('the Files toolbar has Get all and Free up space (all)', () => {
   assert.match(panel, /id="files-free-all"/)
 })
 
-test('file rows render their data actions from rowDataActions, with an escaped path', () => {
+test('file rows render their data actions from rowDataActions, through the escaping button renderer', () => {
   assert.match(app, /import \{ rowDataActions \} from '\.\/row-data-actions\.js'/)
   const render = between(app, 'function renderFileTreeNodes', 'function renderGitStatusBadge')
   assert.match(render, /rowDataActions\(node, \{ hasRemote \}\)/)
-  assert.match(render, /data-data-path="\$\{escapeHtml\(node\.relativePath\)\}"/)
+  // renderActionButton escapes every attribute value (see file-badges.test.js)
+  assert.match(render, /renderActionButton\(data, \{ 'data-data-action': data\.action, 'data-data-path': node\.relativePath \}\)/)
 })
 
 test('data actions run against the browsed project, as one path each, with their confirmations', () => {

@@ -2375,3 +2375,71 @@ select:disabled {
 #remote-info {
   display: none;
 }
+
+/* Files tree: symbols instead of words. Buttons show on the row under the mouse or keyboard focus. */
+.row-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.row-mark {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-soft);
+}
+
+.row-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--orange);
+  box-sizing: border-box;
+}
+
+.row-dot-inside {
+  background: transparent;
+  border: 2px solid #d9b98a;
+}
+
+.row-dot-conflict {
+  background: #b3261e;
+}
+
+.row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  border-radius: 8px;
+  color: var(--ink);
+}
+
+.finder-row .row-action {
+  opacity: 0;
+}
+
+.finder-row:hover .row-action,
+.finder-row:focus-within .row-action {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .finder-row .row-action {
+    opacity: 1;
+  }
+}
+
+.finder-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}

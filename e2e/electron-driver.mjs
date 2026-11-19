@@ -9,6 +9,7 @@ import { dirname, join, resolve } from 'node:path'
 import { mkdtemp, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import electronPath from 'electron'
+import { openSetupPanel } from './open-setup.mjs'
 
 const APP_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -168,8 +169,7 @@ async function attachToWindow(browser, child) {
   // #check-env lives inside the Setup panel, which starts `hidden` until
   // #open-settings is clicked.
   await page.waitForSelector('#open-settings', { timeout: 10_000 })
-  await page.evaluate(() => document.getElementById('open-settings').click())
-  await page.waitForSelector('#check-env', { timeout: 10_000 })
+  await openSetupPanel(page)
 
   async function openProject(projectPath) {
     // setCurrentProjectHeader fires off refreshProjectHealth without

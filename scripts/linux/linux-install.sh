@@ -25,7 +25,9 @@ main() {
     local APP_DIR="$HOME/Applications"
     local TARGET="$APP_DIR/Worldline-Desktop.AppImage"
     local MENU_DIR="$HOME/.local/share/applications"
+    local ICON_DIR="$HOME/.local/share/icons"
     local from_dir=''
+    local exec_line='' no_fuse=''
 
     die() { echo "ERROR: $*" >&2; exit 1; }
     log() { echo "==> $*"; }
@@ -60,7 +62,7 @@ main() {
     }
 
     install_app() {
-        local work image
+        local work image png size
         mkdir -p "$APP_DIR" "$MENU_DIR"
         work=$(mktemp -d "$APP_DIR/.install.XXXXXX")
         trap "rm -rf '$work'" EXIT   # expanded now: $work is local and gone when the trap fires
@@ -75,13 +77,29 @@ main() {
         cp "$image" "$work/new.AppImage"   # the copy is checked, so the file cannot change after the check
         check_hash "$work/new.AppImage"
         chmod +x "$work/new.AppImage"
+        # The icons come out of the checked AppImage (extracting needs no FUSE); without them the menu shows a generic icon.
+        (cd "$work" && ./new.AppImage --appimage-extract 'usr/share/icons/hicolor/*/apps/*.png' >/dev/null 2>&1) || true
+        for png in "$work"/squashfs-root/usr/share/icons/hicolor/*/apps/*.png; do
+            [ -f "$png" ] || continue
+            size=$(basename "$(dirname "$(dirname "$png")")")
+            mkdir -p "$ICON_DIR/hicolor/$size/apps"
+            cp "$png" "$ICON_DIR/hicolor/$size/apps/worldline-desktop.png"
+        done
         mv -f "$work/new.AppImage" "$TARGET"
+        # AppImages need libfuse.so.2. Fedora ships only fuse3, so without it the app runs by unpacking itself on each start.
+        if (PATH="$PATH:/sbin:/usr/sbin"; ldconfig -p 2>/dev/null | grep -q 'libfuse\.so\.2'); then
+            exec_line="Exec=\"$TARGET\""
+        else
+            exec_line="Exec=env APPIMAGE_EXTRACT_AND_RUN=1 \"$TARGET\""
+            no_fuse=1
+        fi
         cat > "$MENU_DIR/worldline-desktop.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Worldline Desktop
 Comment=Version control for your research data
-Exec="$TARGET"
+$exec_line
+Icon=worldline-desktop
 Terminal=false
 Categories=Science;Utility;
 DESKTOP
@@ -100,8 +118,8 @@ DESKTOP
         echo '  Fedora:           sudo dnf install git git-annex datalad'
         echo '  Any distribution: Homebrew (brew install git-annex datalad) or pipx install datalad'
     fi
-    command -v fusermount >/dev/null 2>&1 || command -v fusermount3 >/dev/null 2>&1 ||
-        log 'AppImages need FUSE. If the app does not start: sudo apt install libfuse2 (Debian / Ubuntu) or sudo dnf install fuse (Fedora).'
+    [ -z "$no_fuse" ] ||
+        log 'FUSE 2 is not installed, so the app starts a little slower (it unpacks itself each time). To fix: sudo dnf install fuse-libs (Fedora) or sudo apt install libfuse2 (Debian / Ubuntu).'
     log "Done. Start Worldline Desktop from your application menu or run $TARGET"
 }
 

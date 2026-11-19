@@ -13,7 +13,13 @@ import { renderInstallScript } from '../scripts/render-install-script.mjs'
 const path = fileURLToPath(new URL('../scripts/linux/linux-install.sh', import.meta.url))
 const sh = await readFile(path, 'utf8').catch(() => '')
 const posix = { skip: process.platform === 'win32' && 'runs the script with bash' }
-const IMAGE = 'fake appimage bytes'
+// The fake AppImage is a script that can "extract" itself like a real one, writing an icon.
+const IMAGE = `#!/bin/sh
+if [ "$1" = --appimage-extract ]; then
+  mkdir -p squashfs-root/usr/share/icons/hicolor/512x512/apps
+  printf PNG > squashfs-root/usr/share/icons/hicolor/512x512/apps/worldline-desktop.png
+fi
+`
 const HASH = createHash('sha256').update(IMAGE).digest('hex')
 const VERSION = '9.8.7'
 
@@ -44,7 +50,7 @@ async function run({ script = renderInstallScript(sh, { version: VERSION, zipSha
   })
   return { ...r, home, out: `${r.stdout}${r.stderr}` }
 }
-const allTools = { git: 'echo git', 'git-annex': 'echo git-annex', datalad: 'echo datalad 1.0', fusermount: 'true' }
+const allTools = { git: 'echo git', 'git-annex': 'echo git-annex', datalad: 'echo datalad 1.0', ldconfig: 'echo "libfuse.so.2 (libc6,x86-64) => /usr/lib64/libfuse.so.2"' }
 
 test('linux-install.sh is valid bash', posix, () => {
   execFileSync('bash', ['-n', path])
@@ -74,6 +80,27 @@ test('installs the AppImage as an executable file and adds an app-menu entry', p
   assert.ok(entry.includes(`Exec="${image}"`), entry)
 })
 
+const desktopFile = (home) => readFile(join(home, '.local', 'share', 'applications', 'worldline-desktop.desktop'), 'utf8')
+
+// Without this the menu and dock show a generic icon (seen on Fedora).
+test('installs the icon from the verified AppImage and names it in the menu entry', posix, async () => {
+  const r = await run({ tools: allTools })
+  assert.equal(r.status, 0, r.out)
+  const icon = join(r.home, '.local', 'share', 'icons', 'hicolor', '512x512', 'apps', 'worldline-desktop.png')
+  assert.equal(await readFile(icon, 'utf8'), 'PNG')
+  assert.match(await desktopFile(r.home), /^Icon=worldline-desktop$/m)
+})
+
+// Fedora ships fuse3 (fusermount3) but AppImages need libfuse.so.2, so the old fusermount check passed and the app did not start.
+test('FUSE 2 library present: plain Exec. Missing (even with fusermount3): the app runs without FUSE and the user is told', posix, async () => {
+  const ok = await run({ tools: allTools })
+  assert.ok((await desktopFile(ok.home)).includes(`Exec="${join(ok.home, 'Applications', 'Worldline-Desktop.AppImage')}"`))
+  const r = await run({ tools: { ...allTools, ldconfig: 'echo libfuse3.so.3', fusermount3: 'true' } })
+  assert.equal(r.status, 0, r.out)
+  assert.match(await desktopFile(r.home), /^Exec=env APPIMAGE_EXTRACT_AND_RUN=1 "/m)
+  assert.match(r.out, /fuse-libs/)
+})
+
 test('a file that does not match the SHA-256 is refused and nothing is installed', posix, async () => {
   const r = await run({ tools: allTools, image: 'tampered' })
   assert.notEqual(r.status, 0)
@@ -90,7 +117,7 @@ test('refuses systems other than Linux x86_64 with a plain sentence', posix, asy
 })
 
 test('missing git-annex and DataLad are named with the commands to install them, and the script itself never runs sudo', posix, async () => {
-  const r = await run({ tools: { git: 'echo git', fusermount: 'true' } })
+  const r = await run({ tools: { git: 'echo git', ldconfig: 'echo libfuse.so.2' } })
   assert.equal(r.status, 0, r.out)
   assert.match(r.out, /git-annex/)
   assert.match(r.out, /datalad/i)

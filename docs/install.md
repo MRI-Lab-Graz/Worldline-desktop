@@ -92,8 +92,8 @@ curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/latest/dow
 
 The script checks the AppImage's SHA-256 against the value baked into it, saves it as `~/Applications/Worldline-Desktop.AppImage`
 and adds an entry to your application menu. It does not install Git, git-annex or DataLad: it lists what is missing and
-the command for your package manager. AppImages need FUSE (`libfuse2` on Debian/Ubuntu); the script tells you if it is
-missing. Run it again any time to update. To uninstall, delete `~/Applications/Worldline-Desktop.AppImage` and
+the command for your package manager. AppImages need FUSE (`libfuse2` on Debian/Ubuntu, `fuse-libs` on Fedora); without it the app still starts, just slower, and the script tells you
+how to fix it. It also installs the app icon. Run it again any time to update. To uninstall, delete `~/Applications/Worldline-Desktop.AppImage` and
 `~/.local/share/applications/worldline-desktop.desktop`.
 
 ## Windows: install with a script

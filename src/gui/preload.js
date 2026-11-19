@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('worldlineDesktop', {
   checkPrism: (projectPath, runId) => ipcRenderer.invoke('prism:check', projectPath, runId),
   inspectPrism: (projectPath) => ipcRenderer.invoke('prism:inspect', projectPath),
   getAppVersion: () => ipcRenderer.invoke('app:version'),
+  listSshFolders: (address) => ipcRenderer.invoke('ssh:listFolders', address),
   getCapabilities: () => ipcRenderer.invoke('app:capabilities'),
   getManagedEnvStatus: () => ipcRenderer.invoke('env:status'),
   ensureManagedEnv: (runId) => ipcRenderer.invoke('env:ensure', runId),

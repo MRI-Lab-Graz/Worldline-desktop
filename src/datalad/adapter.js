@@ -1470,14 +1470,31 @@ export class DataLadAdapter {
     }
   }
 
-  // What a delete would lose for good. null means "could not tell", never "none".
+  // What a delete would lose for good, over the project and every installed nested dataset (a BIDS subject is one).
+  // null means "could not tell", never "none". Nested datasets without a remote of their own add nothing to the
+  // unsent count (ponytail: their unsent saves are not counted, only the project's remote is asked).
   async getDeletionRisk(projectPath) {
-    await this.#ensureGitProject(projectPath)
+    const datasets = await this.listDatasets(projectPath)
+    // An uninstalled nested dataset is an empty folder: git there would answer for the parent project.
+    const installed = (await Promise.all(datasets.map(async (d) => d.kind === 'root' || (await fileExists(join(d.path, '.git')))))).map(Boolean)
+    const parts = await Promise.all(datasets.filter((_, i) => installed[i]).map((d) => this.#riskOf(d.path)))
+    const total = (key) => (parts.some((part) => part[key] === null) ? null : parts.reduce((sum, part) => sum + part[key], 0))
+    const hasRemote = parts[0].hasRemote
+    const withRemote = parts.filter((part) => part.hasRemote)
 
+    return {
+      hasRemote,
+      unsavedChanges: total('unsavedChanges'),
+      unsentSaves: !hasRemote || withRemote.some((part) => part.unsentSaves === null) ? null : withRemote.reduce((sum, part) => sum + part.unsentSaves, 0),
+      onlyHereCount: total('onlyHereCount')
+    }
+  }
+
+  async #riskOf(repoPath) {
     const [status, sync, onlyHere] = await Promise.all([
-      this.runner.run('git', ['-C', projectPath, 'status', '--porcelain']),
-      this.#readSyncStatus(projectPath),
-      this.#readOnlyHere(projectPath)
+      this.runner.run('git', ['-C', repoPath, 'status', '--porcelain']),
+      this.#readSyncStatus(repoPath),
+      this.#readOnlyHere(repoPath)
     ])
     const lines = (result) => (result.stdout ?? '').split(/\r?\n/).filter((line) => line.trim() !== '').length
 

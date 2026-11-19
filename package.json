@@ -89,12 +89,14 @@
       "artifactName": "Worldline-Desktop-${version}.AppImage",
       "category": "Science",
       "icon": "src/gui/assets/icons/worldline_desktop.png"
-    }
+    },
+    "npmRebuild": false
   },
   "devDependencies": {
     "electron": "^42.3.0",
     "electron-builder": "^26.15.3",
-    "playwright-core": "^1.61.1"
+    "playwright-core": "^1.61.1",
+    "node-gyp": "file:stubs/node-gyp"
   },
   "engines": {
     "node": ">=20"
@@ -106,6 +108,7 @@
     "tar": "^7.5.21",
     "@xmldom/xmldom": "^0.8.15",
     "fast-uri": "^3.1.6",
-    "js-yaml": "^4.3.2"
+    "js-yaml": "^4.3.2",
+    "node-gyp": "$node-gyp"
   }
 }

@@ -44,14 +44,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Windows: datalad-installer's git-annex installer updates the persistent
+      # Windows: pinned to the version windows-install.cmd pins (the mirror once listed a "latest" that was never
+      # published). datalad-installer's git-annex installer updates the persistent
       # system PATH itself, so later steps see it.
       - name: Install DataLad + git-annex (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 10
         run: |
           python -m pip install datalad-installer datalad
-          datalad-installer --sudo ok -E "${{ runner.temp }}/dl-env.sh" git-annex -m datalad/packages
+          datalad-installer --sudo ok -E "${{ runner.temp }}/dl-env.sh" git-annex=10.20260901 -m datalad/packages
 
       # macOS runners are Apple silicon. datalad-installer's git-annex there is
       # an Intel-only dmg that first installs Rosetta, a step that preceded

@@ -35,3 +35,13 @@ test('smoke job launches the packaged app after building it, on both OSes', () =
     /DLAD_APP_EXECUTABLE: dist\/mac-arm64\/Worldline Desktop\.app\/Contents\/MacOS\/Worldline Desktop/
   )
 })
+
+// "latest" broke CI on 2026-11-18: DataLad's mirror announced git-annex 10.20261113 but never published its Windows
+// installer (404 on the mirror and on GitHub). The smoke job installs the version the Windows install script pins.
+test('the Windows smoke job installs the git-annex version pinned in windows-install.cmd, not "latest"', async () => {
+  const cmd = await readFile(new URL('../scripts/windows/windows-install.cmd', import.meta.url), 'utf8')
+  const pinned = /\$GitAnnexVersion = '([\d.]+)'/.exec(cmd)?.[1]
+  assert.ok(pinned, 'windows-install.cmd pins a git-annex version')
+  const step = workflow.split('- name:').find((s) => s.includes('datalad-installer --sudo'))
+  assert.ok(step.includes(`git-annex=${pinned} -m datalad/packages`), `expected git-annex=${pinned}`)
+})

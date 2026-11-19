@@ -23,6 +23,7 @@ import { createLatestLineThrottle, createRunRegistry } from './run-registry.js'
 import { createAppUpdateChecks, createBusyCounter, runUnlessBusy } from './update-runner.js'
 import { parseVersion, repairEnvDir } from '../datalad/validator-update.js'
 import { skipNotice } from '../datalad/tool-notices.js'
+import { listSshFolders } from './ssh-browse.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -471,6 +472,9 @@ handle('adapter:cancelCommand', (_event, runId) => {
 })
 
 handle('app:version', () => app.getVersion())
+
+// Folder names on a server, for the Browse button on ssh:// addresses. Read-only; the address is checked in ssh-browse.js.
+handle('ssh:listFolders', async (_event, address) => listSshFolders(address))
 
 handle('app:capabilities', () => ({ run: !policy.runDisabled }))
 

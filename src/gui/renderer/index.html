@@ -298,7 +298,7 @@
                     <button id="pick-get-remote-network-path" class="button button-ghost button-inline" type="button">Browse</button>
                   </div>
                 </label>
-                <p class="hint-inline">UNC paths (\\server\share), smb:// URLs, or any locally-mounted network folder.</p>
+                <p class="hint-inline">UNC paths (\\server\share), smb:// URLs, any locally-mounted network folder, or a server you log in to with ssh (ssh://server/folder, then Browse).</p>
               </div>
             </div>
 
@@ -808,6 +808,19 @@
           <button id="reckless-confirm" class="button button-inline" type="submit" disabled>Delete</button>
         </div>
       </form>
+    </div>
+
+    <div id="ssh-browse-overlay" class="global-busy-overlay" hidden>
+      <div class="global-busy-card identity-card" role="dialog" aria-modal="true" aria-labelledby="ssh-browse-title">
+        <h2 id="ssh-browse-title">Browse the server</h2>
+        <p class="lede-small">Folder: <span id="ssh-browse-path" class="delete-project-path"></span></p>
+        <p id="ssh-browse-note" class="lede-small" role="status"></p>
+        <ul id="ssh-browse-list" class="ssh-browse-list"></ul>
+        <div class="row-actions">
+          <button id="ssh-browse-cancel" class="button button-ghost button-inline" type="button">Cancel</button>
+          <button id="ssh-browse-use" class="button button-inline" type="button" disabled>Use this folder</button>
+        </div>
+      </div>
     </div>
 
     <div id="delete-project-overlay" class="global-busy-overlay" hidden>

@@ -295,6 +295,12 @@ const elements = {
   deleteProjectOpen: document.getElementById('delete-project-open'),
   deleteProjectNote: document.getElementById('delete-project-note'),
   deleteProjectOverlay: document.getElementById('delete-project-overlay'),
+  sshBrowseOverlay: document.getElementById('ssh-browse-overlay'),
+  sshBrowsePath: document.getElementById('ssh-browse-path'),
+  sshBrowseNote: document.getElementById('ssh-browse-note'),
+  sshBrowseList: document.getElementById('ssh-browse-list'),
+  sshBrowseCancel: document.getElementById('ssh-browse-cancel'),
+  sshBrowseUse: document.getElementById('ssh-browse-use'),
   deleteProjectForm: document.getElementById('delete-project-form'),
   deleteProjectFolder: document.getElementById('delete-project-folder'),
   deleteProjectSize: document.getElementById('delete-project-size'),
@@ -363,7 +369,8 @@ wireFolderPicker(elements.pickCommandProjectPathButton, elements.commandProjectP
 
 wireFolderPicker(elements.pickGetRemoteNetworkPathButton, elements.getRemoteSourceNetwork, {
   title: 'Select network or local source folder',
-  purpose: 'source' // read from, never opened as a project: no trust prompt
+  purpose: 'source', // read from, never opened as a project: no trust prompt
+  beforePick: (input) => (/^\s*ssh:\/\//i.test(input.value) ? sshBrowse(input) : false) // a server address is browsed over ssh, not in the system dialog
 })
 
 // The project lives at location/name: show where, and look for an existing BIDS dataset at that path.
@@ -3374,6 +3381,7 @@ function renderCurrentFileBrowser() {
 
 function wireFolderPicker(button, input, options) {
   button.addEventListener('click', async () => {
+    if (options.beforePick?.(input)) return
     let selectedPath = null
     try {
       selectedPath = await api.pickDirectory({
@@ -5223,4 +5231,70 @@ void refreshGitIdentity().then(() => {
   if (state.gitIdentity.available && !state.gitIdentity.complete) {
     openIdentityDialog()
   }
+})
+
+// Browse a server over ssh (Create project > Network Folder, address ssh://server/folder). The main process checks
+// the address and only lists folder names; names come from the server, so they only go in with textContent.
+const sshBrowseFocus = trapFocus(elements.sshBrowseOverlay)
+let sshBrowseTarget = null // the listing being shown: { address, parent, folders }
+
+function closeSshBrowse() {
+  elements.sshBrowseOverlay.hidden = true
+  sshBrowseTarget = null
+  sshBrowseFocus.restore()
+}
+
+function sshFolderButton(label, address) {
+  const item = document.createElement('li')
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'button button-ghost button-inline'
+  button.textContent = label
+  button.addEventListener('click', () => void loadSshFolders(address))
+  item.append(button)
+  return item
+}
+
+function renderSshBrowse(listing) {
+  sshBrowseTarget = listing
+  elements.sshBrowsePath.textContent = listing.address
+  elements.sshBrowseNote.textContent = listing.folders.length === 0 ? 'No folders in here.' : ''
+  const items = listing.folders.map((name) => sshFolderButton(`📁 ${name}`, `${listing.address.replace(/\/$/, '')}/${encodeURIComponent(name)}`))
+  if (listing.parent) items.unshift(sshFolderButton('⬆ Up one folder', listing.parent))
+  elements.sshBrowseList.replaceChildren(...items)
+  elements.sshBrowseUse.disabled = false
+}
+
+async function loadSshFolders(address) {
+  elements.sshBrowseNote.textContent = 'Connecting…'
+  elements.sshBrowseUse.disabled = true
+  try {
+    renderSshBrowse(await api.listSshFolders(address))
+  } catch (error) {
+    sshBrowseTarget = null
+    elements.sshBrowseList.replaceChildren()
+    elements.sshBrowseNote.textContent = String(error.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+  }
+}
+
+function sshBrowse(input) {
+  sshBrowseFocus.remember()
+  elements.sshBrowseOverlay.hidden = false
+  elements.sshBrowseList.replaceChildren()
+  elements.sshBrowsePath.textContent = input.value.trim()
+  sshBrowseTarget = null
+  void loadSshFolders(input.value.trim())
+  elements.sshBrowseCancel.focus()
+  return true
+}
+
+elements.sshBrowseCancel.addEventListener('click', closeSshBrowse)
+elements.sshBrowseOverlay.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeSshBrowse()
+})
+elements.sshBrowseUse.addEventListener('click', () => {
+  if (!sshBrowseTarget?.address) return
+  elements.getRemoteSourceNetwork.value = sshBrowseTarget.address
+  elements.getRemoteSourceNetwork.dispatchEvent(new Event('input', { bubbles: true }))
+  closeSshBrowse()
 })

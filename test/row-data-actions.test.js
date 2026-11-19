@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { rowDataActions } from '../src/gui/renderer/row-data-actions.js'
 
-const actions = (type, annexPresent, hasRemote = true) => rowDataActions({ type, annexPresent }, { hasRemote }).map((a) => a.action)
+const actions = (type, annexPresent, hasRemote = true, locked = true) => rowDataActions({ type, annexPresent, locked }, { hasRemote }).map((a) => a.action)
 
 test('a file that is not downloaded can only be fetched', () => {
   assert.deepEqual(actions('file', false), ['get'])
@@ -32,10 +32,10 @@ test('rows that are not annexed (plain Git files, unknown state) get no data act
 })
 
 test('every action carries a label and a title', () => {
-  for (const a of [...rowDataActions({ type: 'file', annexPresent: true }, { hasRemote: true }), ...rowDataActions({ type: 'file', annexPresent: false }, { hasRemote: true })]) {
+  for (const a of [...rowDataActions({ type: 'file', annexPresent: true, locked: true }, { hasRemote: true }), ...rowDataActions({ type: 'file', annexPresent: false }, { hasRemote: true })]) {
     assert.ok(a.label && a.title, a.action)
   }
-  assert.match(rowDataActions({ type: 'file', annexPresent: true }, { hasRemote: true }).find((a) => a.action === 'unlock').title, /real, editable copy/)
+  assert.match(rowDataActions({ type: 'file', annexPresent: true, locked: true }, { hasRemote: true }).find((a) => a.action === 'unlock').title, /real, editable copy/)
 })
 
 test('without a remote there is nowhere else to keep a copy, so Free up space is not offered (Unlock still is)', () => {
@@ -43,4 +43,17 @@ test('without a remote there is nowhere else to keep a copy, so Free up space is
   assert.deepEqual(actions('directory', true, false), [])
   assert.deepEqual(actions('directory', 'partial', false), ['get'])
   assert.deepEqual(actions('file', false, false), ['get'], 'a missing file must stay fetchable')
+})
+
+test('a file that is already unlocked (a real, editable file) is not offered Unlock again', () => {
+  assert.deepEqual(actions('file', true, true, false), ['drop'])
+  assert.deepEqual(actions('file', true, false, false), [])
+})
+
+test('when it is not known whether a file is locked, Unlock is not offered', () => {
+  assert.deepEqual(rowDataActions({ type: 'file', annexPresent: true }, { hasRemote: true }).map((a) => a.action), ['drop'])
+})
+
+test('a missing file stays fetchable whatever its lock state', () => {
+  assert.deepEqual(actions('file', false, true, false), ['get'])
 })

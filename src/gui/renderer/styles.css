@@ -1761,8 +1761,23 @@ select:disabled {
 }
 
 .file-icon-file {
+  width: 0.72rem;
+  height: 0.92rem;
   background: linear-gradient(180deg, #fffcf7, #f6f1e8);
   border-color: #cfc4b0;
+  border-radius: 2px;
+}
+
+/* the folded corner: a page, not a checkbox */
+.file-icon-file::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 0.28rem;
+  height: 0.28rem;
+  background: linear-gradient(225deg, var(--card) 50%, #cfc4b0 50%);
+  border-bottom-left-radius: 2px;
 }
 
 .hint {

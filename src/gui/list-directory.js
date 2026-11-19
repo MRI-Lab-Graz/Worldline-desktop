@@ -89,7 +89,8 @@ export async function listDirectory({ rootPath, dirPath = rootPath, run, maxEntr
 
     if (!child.isDirectory()) {
       const annexPresent = presentPaths.has(key) ? true : absentPaths.has(key) ? false : null
-      return { ...base, gitStatus: statusByPath.get(key) ?? null, annexPresent }
+      // A locked annexed file is a link into the annex; unlocked (or always, on Windows) it is a real, editable file.
+      return { ...base, gitStatus: statusByPath.get(key) ?? null, annexPresent, locked: child.isSymbolicLink() }
     }
 
     const hasPresent = presentChildren.has(child.name)

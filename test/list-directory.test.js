@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtemp, mkdir, writeFile, realpath } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, realpath, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ProcessRunner } from '../src/datalad/process-runner.js'
@@ -121,4 +121,14 @@ test('listDirectory reports annexed content as present or missing', { skip: !has
   assert.equal(entries['data.bin'].annexPresent, true)
   assert.equal(entries['gone.bin'].annexPresent, false)
   assert.equal(entries.code.annexPresent, null)
+})
+
+// Windows needs a privilege to make links, and its annexed files are never links anyway.
+test('listDirectory tells a locked file (a link into the annex) from an editable one', { skip: process.platform === 'win32' }, async () => {
+  const root = await project()
+  await symlink('README.md', join(root, 'locked.dat'))
+  const entries = byName(await listDirectory({ rootPath: root, run }))
+
+  assert.equal(entries['locked.dat'].locked, true)
+  assert.equal(entries['README.md'].locked, false)
 })

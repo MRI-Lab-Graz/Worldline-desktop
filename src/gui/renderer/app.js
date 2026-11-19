@@ -1,3 +1,4 @@
+import { addFavorite, removeFavorite, cleanFavorites, favoriteTarget } from './favorites.js'
 import {
   computeDatasetGating,
   computeAnnexToolGating,
@@ -296,6 +297,13 @@ const elements = {
   deleteProjectNote: document.getElementById('delete-project-note'),
   deleteProjectOverlay: document.getElementById('delete-project-overlay'),
   sshBrowseOverlay: document.getElementById('ssh-browse-overlay'),
+  favoritesList: document.getElementById('favorites-list'),
+  favoritesName: document.getElementById('favorites-name'),
+  favoritesAddress: document.getElementById('favorites-address'),
+  favoritesAdd: document.getElementById('favorites-add'),
+  favoritesNote: document.getElementById('favorites-note'),
+  createFavorite: document.getElementById('create-favorite'),
+  createFavoriteRow: document.getElementById('create-favorite-row'),
   sshBrowsePath: document.getElementById('ssh-browse-path'),
   sshBrowseNote: document.getElementById('ssh-browse-note'),
   sshBrowseList: document.getElementById('ssh-browse-list'),
@@ -5298,3 +5306,67 @@ elements.sshBrowseUse.addEventListener('click', () => {
   elements.getRemoteSourceNetwork.dispatchEvent(new Event('input', { bubbles: true }))
   closeSshBrowse()
 })
+
+// Connection favorites: a name for an address, kept on this computer. Setup edits the list; Create project only
+// fills the address field from it (nothing runs until Create). Names and addresses are plain text (textContent).
+const FAVORITES_STORAGE_KEY = 'worldlineDesktop.favorites'
+let favorites = []
+try {
+  favorites = cleanFavorites(JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) ?? '[]'))
+} catch {}
+
+function saveFavorites() {
+  try {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites))
+  } catch {}
+}
+
+function renderFavorites() {
+  elements.favoritesList.replaceChildren(
+    ...favorites.map((favorite) => {
+      const item = document.createElement('li')
+      const name = Object.assign(document.createElement('strong'), { textContent: favorite.name })
+      const address = Object.assign(document.createElement('span'), { className: 'favorites-address', textContent: favorite.address })
+      const remove = Object.assign(document.createElement('button'), { type: 'button', className: 'button button-ghost button-inline', textContent: 'Remove' })
+      remove.setAttribute('aria-label', `Remove favorite ${favorite.name}`)
+      remove.addEventListener('click', () => {
+        favorites = removeFavorite(favorites, favorite.name)
+        saveFavorites()
+        renderFavorites()
+      })
+      item.append(name, address, remove)
+      return item
+    })
+  )
+  const placeholder = Object.assign(document.createElement('option'), { value: '', textContent: 'Choose a favorite…' })
+  elements.createFavorite.replaceChildren(placeholder, ...favorites.map((f, index) => Object.assign(document.createElement('option'), { value: String(index), textContent: f.name })))
+  elements.createFavoriteRow.hidden = favorites.length === 0
+}
+
+elements.favoritesAdd.addEventListener('click', () => {
+  const added = addFavorite(favorites, { name: elements.favoritesName.value, address: elements.favoritesAddress.value })
+  if (added.error) {
+    elements.favoritesNote.textContent = added.error
+    return
+  }
+  favorites = added.list
+  saveFavorites()
+  elements.favoritesName.value = ''
+  elements.favoritesAddress.value = ''
+  elements.favoritesNote.textContent = 'Added.'
+  renderFavorites()
+})
+
+elements.createFavorite.addEventListener('change', () => {
+  const favorite = favorites[Number(elements.createFavorite.value)]
+  if (!favorite) return
+  const isUrl = favoriteTarget(favorite.address) === 'url'
+  ;(isUrl ? elements.getRemoteModeUrlRadio : elements.getRemoteModeNetworkRadio).checked = true
+  updateGetRemoteMode()
+  const field = isUrl ? elements.getRemoteSourceUrl : elements.getRemoteSourceNetwork
+  field.value = favorite.address
+  field.dispatchEvent(new Event('input', { bubbles: true }))
+  elements.createFavorite.value = ''
+})
+
+renderFavorites()

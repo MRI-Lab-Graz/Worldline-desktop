@@ -64,3 +64,20 @@ test('the server text is never echoed back into the message', async () => {
   const run = async () => ({ code: 255, stdout: '', stderr: '<img src=x onerror=alert(1)>' })
   await assert.rejects(listSshFolders('ssh://mri/d', { run }), (e) => !/img/.test(e.message))
 })
+
+// Folder names with umlauts, accents, other scripts and brackets must be listed AND openable; the same rule
+// decides both, so nothing is shown that the address check would then refuse. Quotes and shell characters stay out.
+test('letters and digits of any language, combining marks and brackets are allowed in a path', () => {
+  assert.deepEqual(parseSshAddress('ssh://mri/data/M%C3%BCller/%E5%AD%A6%E7%94%9F/data%20(2)'), { host: 'mri', path: '/data/Müller/学生/data (2)' })
+  assert.deepEqual(parseSshAddress('ssh://mri/u%CC%88'), { host: 'mri', path: '/u\u0308' }) // kept as typed (u + combining diaeresis, as macOS names them), so it matches the server
+})
+
+test('look-alike and invisible characters are still refused', () => {
+  for (const bad of ['ssh://mri/a%E2%80%AEb', 'ssh://mri/a%E2%80%8Bb', 'ssh://mri/a%C2%A0b', 'ssh://mri/a%EF%BC%8Fb']) {
+    assert.equal(parseSshAddress(bad), null, bad) // right-to-left override, zero-width space, no-break space, full-width slash
+  }
+})
+
+test('the listing shows only names that can be opened', () => {
+  assert.deepEqual(parseFolderListing('Müller/\ndata (2)/\nit\'s/\na;b/\n学生/\n'), ['Müller', 'data (2)', '学生'])
+})

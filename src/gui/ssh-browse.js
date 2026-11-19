@@ -5,7 +5,10 @@ import { execFile } from 'node:child_process'
 // the host cannot start with "-", the path has a short list of allowed characters (no quotes, no
 // shell characters, no ".."), and ssh never asks for a password (BatchMode): it uses the user's key.
 const HOST = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*@)?[A-Za-z0-9][A-Za-z0-9.-]*$/
-const SEGMENT = /^[A-Za-z0-9 ._+@=,:~-]+$/
+// Letters, marks (macOS stores umlauts as letter + mark) and digits of any language, plus a few safe symbols. No quotes,
+// shell characters, control, invisible or look-alike characters. Safe inside the single quotes of the remote command.
+const SEGMENT = /^[\p{L}\p{M}\p{N} ._+@=,:~()-]+$/u
+const isOpenableName = (name) => SEGMENT.test(name) && name !== '.' && name !== '..'
 const MAX_FOLDERS = 1000
 const MAX_OUTPUT_BYTES = 1024 * 1024
 const TIMEOUT_MS = 20_000
@@ -20,7 +23,7 @@ export function parseSshAddress(text) {
     return null
   }
   const segments = path.split('/').filter((segment) => segment !== '')
-  if (!segments.every((segment) => SEGMENT.test(segment) && segment !== '.' && segment !== '..')) return null
+  if (!segments.every(isOpenableName)) return null
   return { host: match[1], path: `/${segments.join('/')}` }
 }
 
@@ -39,7 +42,7 @@ export function parseFolderListing(stdout) {
   for (const line of String(stdout).split('\n')) {
     if (!line.endsWith('/')) continue
     const name = line.slice(0, -1)
-    if (name === '' || name.startsWith('.') || name.includes('/') || /[\u0000-\u001f\u007f]/.test(name)) continue
+    if (name.startsWith('.') || !isOpenableName(name)) continue
     folders.push(name)
     if (folders.length >= MAX_FOLDERS) break
   }

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseSshAddress, parseFolderListing, sshBrowseArgs, listSshFolders, parentOf } from '../src/gui/ssh-browse.js'
+import { parseSshAddress, parseFolderListing, sshBrowseArgs, listSshFolders, parentOf, sshExecOptions } from '../src/gui/ssh-browse.js'
 
 test('parseSshAddress takes ssh://host/absolute/path, with an optional user@', () => {
   assert.deepEqual(parseSshAddress('ssh://mri/datalad/mri/MRI-Lab_Repository/'), { host: 'mri', path: '/datalad/mri/MRI-Lab_Repository' })
@@ -63,4 +63,14 @@ test('listSshFolders gives plain-words errors', async () => {
 test('the server text is never echoed back into the message', async () => {
   const run = async () => ({ code: 255, stdout: '', stderr: '<img src=x onerror=alert(1)>' })
   await assert.rejects(listSshFolders('ssh://mri/d', { run }), (e) => !/img/.test(e.message))
+})
+
+// On Windows a program name is looked up in the current folder first; the flag turns that off, so a planted
+// ssh.exe in the app's working folder is never run (process-runner.js does the same for git and datalad).
+test('ssh is started with the current-folder lookup switched off, and still bounded in time and output', () => {
+  const options = sshExecOptions({ PATH: '/x' })
+  assert.equal(options.env.NoDefaultCurrentDirectoryInExePath, '1')
+  assert.equal(options.env.PATH, '/x')
+  assert.equal(options.windowsHide, true)
+  assert.ok(options.timeout > 0 && options.maxBuffer > 0)
 })

@@ -172,6 +172,18 @@
         </div>
 
         <div class="setup-section">
+          <h3 class="setup-section-title">Connection Favorites</h3>
+          <p class="lede-small">Give a place you use often a short name, such as your lab server or OpenNeuro. You then pick it by name when you create a project. This only remembers the address on this computer; set up the server connection (ssh) beforehand.</p>
+          <ul id="favorites-list" class="favorites-list"></ul>
+          <div class="field-row">
+            <input id="favorites-name" type="text" maxlength="40" placeholder="Name, e.g. Datalad-server" aria-label="Favorite name" autocomplete="off" />
+            <input id="favorites-address" type="text" maxlength="500" placeholder="Address, e.g. ssh://datalad/datalad/mri/MRI-Lab_Repository/" aria-label="Favorite address" autocomplete="off" spellcheck="false" />
+            <button id="favorites-add" class="button button-ghost button-inline" type="button">Add</button>
+          </div>
+          <p id="favorites-note" class="lede-small" role="status"></p>
+        </div>
+
+        <div class="setup-section">
           <h3 class="setup-section-title">Local Environment</h3>
           <p class="lede-small">Check whether Python 3, DataLad, and git-annex are installed and working on this computer.</p>
           <div class="row-actions">
@@ -271,6 +283,10 @@
 
           <div class="open-project-controls">
             <div id="create-remote-source-panel" hidden>
+              <label id="create-favorite-row" class="field" hidden>
+                <span>Favorite</span>
+                <select id="create-favorite"></select>
+              </label>
               <div class="get-remote-mode-row" role="group" aria-label="Source type">
                 <label class="get-remote-mode-option">
                   <input type="radio" name="get-remote-mode" id="get-remote-mode-url" value="url" checked />

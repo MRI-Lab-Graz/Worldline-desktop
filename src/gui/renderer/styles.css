@@ -2457,3 +2457,23 @@ select:disabled {
   justify-content: flex-start;
   text-align: left;
 }
+
+.favorites-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.favorites-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 4px 0;
+}
+
+.favorites-address {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted, inherit);
+}

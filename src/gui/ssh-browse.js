@@ -56,11 +56,14 @@ function runSsh(args) {
 }
 
 // Plain words for the usual failures. The server's own text is only looked at, never shown.
-function explain({ stderr = '', timedOut }) {
+function explain({ stderr = '', timedOut }, host) {
   if (timedOut) return 'The server did not answer in time. Check the address and your network or VPN.'
   if (/permission denied/i.test(stderr)) return 'The server did not accept your key. This browser cannot ask for a password: set up key login for this server first.'
   if (/host key verification failed|REMOTE HOST IDENTIFICATION/i.test(stderr)) return 'This computer does not know the server yet. Connect once in a terminal (ssh the-server), accept its fingerprint, then try again.'
-  if (/could not resolve|name or service not known|no route|connection (refused|timed out)/i.test(stderr)) return 'Cannot find the server. Check the name in the address and your network or VPN.'
+  if (/could not resolve|name or service not known|nodename nor servname/i.test(stderr)) {
+    return `This computer does not know a server called "${host}". Use the server's full name or number in the address, or add it to your SSH config file (Host ${host}, HostName ..., User ...).`
+  }
+  if (/no route|connection (refused|timed out)|network is unreachable/i.test(stderr)) return 'Cannot reach the server. Check your network or VPN.'
   if (/no such file|not a directory/i.test(stderr)) return 'This folder does not exist on the server.'
   return 'Could not list the folders on the server.'
 }
@@ -75,7 +78,7 @@ export async function listSshFolders(address, { run = runSsh } = {}) {
     if (error?.code === 'ENOENT') throw new Error('OpenSSH is not installed on this computer, so the server cannot be browsed.')
     throw new Error('Could not list the folders on the server.')
   }
-  if (result.code !== 0) throw new Error(explain(result))
+  if (result.code !== 0) throw new Error(explain(result, parsed.host))
   const parent = parentOf(parsed.path)
   const base = `ssh://${parsed.host}`
   return {

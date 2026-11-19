@@ -49,9 +49,15 @@ export function parseFolderListing(stdout) {
   return folders
 }
 
+// NoDefaultCurrentDirectoryInExePath: on Windows a program name is looked up in the current folder first; this
+// stops a planted ssh.exe there from running (process-runner.js does the same for git and datalad).
+export function sshExecOptions(env = process.env) {
+  return { timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES, windowsHide: true, env: { ...env, NoDefaultCurrentDirectoryInExePath: '1' } }
+}
+
 function runSsh(args) {
   return new Promise((resolve, reject) => {
-    execFile('ssh', args, { timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES, windowsHide: true }, (error, stdout, stderr) => {
+    execFile('ssh', args, sshExecOptions(), (error, stdout, stderr) => {
       if (error?.code === 'ENOENT') return reject(error)
       resolve({ code: typeof error?.code === 'number' ? error.code : error ? 255 : 0, stdout, stderr, timedOut: Boolean(error?.killed) })
     })

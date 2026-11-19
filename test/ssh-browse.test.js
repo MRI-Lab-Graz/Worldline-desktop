@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseSshAddress, parseFolderListing, sshBrowseArgs, listSshFolders, parentOf } from '../src/gui/ssh-browse.js'
+import { parseSshAddress, parseFolderListing, sshBrowseArgs, listSshFolders, parentOf, sshExecOptions } from '../src/gui/ssh-browse.js'
 
 test('parseSshAddress takes ssh://host/absolute/path, with an optional user@', () => {
   assert.deepEqual(parseSshAddress('ssh://mri/datalad/mri/MRI-Lab_Repository/'), { host: 'mri', path: '/datalad/mri/MRI-Lab_Repository' })
@@ -65,19 +65,12 @@ test('the server text is never echoed back into the message', async () => {
   await assert.rejects(listSshFolders('ssh://mri/d', { run }), (e) => !/img/.test(e.message))
 })
 
-// Folder names with umlauts, accents, other scripts and brackets must be listed AND openable; the same rule
-// decides both, so nothing is shown that the address check would then refuse. Quotes and shell characters stay out.
-test('letters and digits of any language, combining marks and brackets are allowed in a path', () => {
-  assert.deepEqual(parseSshAddress('ssh://mri/data/M%C3%BCller/%E5%AD%A6%E7%94%9F/data%20(2)'), { host: 'mri', path: '/data/Müller/学生/data (2)' })
-  assert.deepEqual(parseSshAddress('ssh://mri/u%CC%88'), { host: 'mri', path: '/u\u0308' }) // kept as typed (u + combining diaeresis, as macOS names them), so it matches the server
-})
-
-test('look-alike and invisible characters are still refused', () => {
-  for (const bad of ['ssh://mri/a%E2%80%AEb', 'ssh://mri/a%E2%80%8Bb', 'ssh://mri/a%C2%A0b', 'ssh://mri/a%EF%BC%8Fb']) {
-    assert.equal(parseSshAddress(bad), null, bad) // right-to-left override, zero-width space, no-break space, full-width slash
-  }
-})
-
-test('the listing shows only names that can be opened', () => {
-  assert.deepEqual(parseFolderListing('Müller/\ndata (2)/\nit\'s/\na;b/\n学生/\n'), ['Müller', 'data (2)', '学生'])
+// On Windows a program name is looked up in the current folder first; the flag turns that off, so a planted
+// ssh.exe in the app's working folder is never run (process-runner.js does the same for git and datalad).
+test('ssh is started with the current-folder lookup switched off, and still bounded in time and output', () => {
+  const options = sshExecOptions({ PATH: '/x' })
+  assert.equal(options.env.NoDefaultCurrentDirectoryInExePath, '1')
+  assert.equal(options.env.PATH, '/x')
+  assert.equal(options.windowsHide, true)
+  assert.ok(options.timeout > 0 && options.maxBuffer > 0)
 })

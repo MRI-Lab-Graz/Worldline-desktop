@@ -210,6 +210,7 @@ const elements = {
   branchStatus: document.getElementById('branch-status'),
   workingTreeSummary: document.getElementById('working-tree-summary'),
   changedFilesOutput: document.getElementById('changed-files-output'),
+  changedFilesRefreshButton: document.getElementById('changed-files-refresh'),
   changedFilesSelectAllButton: document.getElementById('changed-files-select-all'),
   changedFilesSelectNoneButton: document.getElementById('changed-files-select-none'),
   ignoreRulesScopeRoot: document.getElementById('ignore-rules-scope-root'),
@@ -453,6 +454,8 @@ elements.clearRecentProjectsButton.addEventListener('click', () => {
   renderRecentProjects()
   setLastActionState('Recent project list cleared.', 'idle')
 })
+
+elements.changedFilesRefreshButton.addEventListener('click', () => void refreshWorkingTreeStatus(state.rootProjectPath))
 
 elements.changedFilesSelectAllButton.addEventListener('click', () => {
   const filePaths = (state.workingTreeSnapshot?.files ?? []).map((entry) => entry.path)

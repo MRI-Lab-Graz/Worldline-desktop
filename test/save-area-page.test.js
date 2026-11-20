@@ -93,3 +93,10 @@ test('Save is grayed out only for a loaded status, and a gray Save says why in i
   assert.match(body, /saveProjectButton\.title = gating\.disabled \? gating\.guidance\.text : SAVE_BUTTON_TITLE/)
   assert.match(html, /id="save-project"[^>]*title="Save the current state of your files with a message\. Works fully offline\."/)
 })
+
+test('a Refresh button next to All and None re-reads the changed files, so a missed change never leaves Save gray', () => {
+  assert.match(panel, /<button id="changed-files-refresh"[^>]*type="button"[^>]*>\s*Refresh\s*<\/button>/)
+  assert.ok(at('id="changed-files-refresh"') < at('id="changed-files-select-all"'), 'Refresh comes first, All and None keep their place')
+  assert.match(app, /changedFilesRefreshButton\.addEventListener\('click', \(\) => void refreshWorkingTreeStatus\(state\.rootProjectPath\)\)/)
+  assert.doesNotMatch(app, /changedFilesRefreshButton\.disabled\s*=\s*true/) // never grayed out with the rest
+})

@@ -44,6 +44,8 @@ test.after(async () => {
 })
 
 const save = async (message) => {
+  // Save is gray until the change list has caught up with the file just written
+  await app.page.waitForFunction(() => !document.getElementById('save-project').disabled, undefined, { timeout: 15_000 })
   await app.page.evaluate((m) => {
     const input = document.getElementById('message')
     input.value = m

@@ -3701,9 +3701,8 @@ function gatherSavePaths() {
   return [...state.selectedChangedPaths]
 }
 
-const SAVE_BUTTON_TITLE = 'Save the current state of your files with a message. Works fully offline.'
-
 function updateSaveButtonState() {
+  const SAVE_BUTTON_TITLE = 'Save the current state of your files with a message. Works fully offline.' // local: this runs at load, before later top-level consts exist
   const snapshot = state.workingTreeSnapshot
   const prismMode = state.rootProjectPrism ? (state.rootProjectPrism.kind === 'bids' ? 'bids' : state.rootProjectPrism.introducesPrism ? 'conversion' : 'gated') : undefined
 

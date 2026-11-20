@@ -31,6 +31,7 @@ test.after(async () => {
 })
 
 const clickSave = async () => {
+  await app.page.waitForFunction(() => !document.getElementById('save-project').disabled, undefined, { timeout: 15_000 }) // gray until the new file is listed
   await app.page.evaluate(() => {
     const input = document.getElementById('message')
     input.value = 'e2e: identity'
@@ -75,7 +76,7 @@ test('rejects a bad email, then saving the dialog writes the global config and u
   const before = commitCount()
   await clickSave()
   await app.page.waitForFunction(
-    () => !document.getElementById('save-project').disabled && document.getElementById('save-project').textContent.trim() === 'Save this step',
+    () => document.getElementById('save-project').textContent.trim() === 'Save this step', // nothing left to save, so Save is gray again
     undefined,
     { timeout: 30_000 }
   )

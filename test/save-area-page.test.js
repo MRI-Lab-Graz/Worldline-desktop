@@ -100,3 +100,17 @@ test('a Refresh button next to All and None re-reads the changed files, so a mis
   assert.match(app, /changedFilesRefreshButton\.addEventListener\('click', \(\) => void refreshWorkingTreeStatus\(state\.rootProjectPath\)\)/)
   assert.doesNotMatch(app, /changedFilesRefreshButton\.disabled\s*=\s*true/) // never grayed out with the rest
 })
+
+// A top-level const is not usable before its line runs. updateSaveButtonState() is called while app.js loads,
+// so anything it reads must already be declared by then (the CI Windows e2e crashed at startup on this).
+test('what updateSaveButtonState reads is declared before the first call that runs at load', () => {
+  const lines = app.split('\n')
+  const firstCall = lines.findIndex((line) => line === 'updateSaveButtonState()' || /^updateSaveButtonState\(\)/.test(line))
+  assert.ok(firstCall >= 0, 'a top-level call exists')
+  const start = app.indexOf('function updateSaveButtonState')
+  const body = app.slice(start, app.indexOf('\n}\n', start))
+  for (const name of new Set(body.match(/\b[A-Z][A-Z0-9_]{3,}\b/g) ?? [])) {
+    const declared = lines.findIndex((line) => new RegExp(`^(const|let) ${name}\\b`).test(line))
+    if (declared >= 0) assert.ok(declared < firstCall, `${name} is declared at line ${declared + 1}, after the load-time call at line ${firstCall + 1}`)
+  }
+})

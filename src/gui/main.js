@@ -10,7 +10,7 @@ import { ProcessRunner } from '../datalad/process-runner.js'
 import { assertCommandRequest } from '../datalad/schema.js'
 import { createResultCounter } from '../datalad/result-counter.js'
 import { createProjectWatcher } from './fs-watch.js'
-import { assertDeletableProject, deleteProjectFolder, folderSize, projectNameMatches } from './delete-project.js'
+import { assertDeletableProject, assertOnLocalDisk, deleteProjectFolder, folderSize, projectNameMatches } from './delete-project.js'
 import { listDirectory } from './list-directory.js'
 import { previewPaths } from './renderer/reckless-preview.js'
 import { initialAuthorizedRoots, isUnsafeBackupLocation, isWithinRoots } from './path-confinement.js'
@@ -575,6 +575,7 @@ handle('adapter:getWorkingTreeStatus', async (_event, projectPath) => {
 handle('adapter:getDeletionPreview', async (_event, projectPath) => {
   requireAuthorizedRoot(projectPath)
   const target = assertDeletableProject(projectPath, { roots: authorizedRoots })
+  await assertOnLocalDisk(target)
   const [risk, size] = await Promise.all([adapter.getDeletionRisk(projectPath), folderSize(target)])
   return { projectPath: target, name: basename(target), risk, ...size }
 })
@@ -585,6 +586,7 @@ handle('adapter:deleteProject', async (event, payload = {}) => {
   const { projectPath, name } = payload
   requireAuthorizedRoot(projectPath)
   const target = assertDeletableProject(projectPath, { roots: authorizedRoots })
+  await assertOnLocalDisk(target)
   if (!projectNameMatches(name, basename(target))) {
     throw new Error('The name does not match, so nothing was deleted.')
   }

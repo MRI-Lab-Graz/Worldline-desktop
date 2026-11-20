@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process'
 import { lstatSync, realpathSync } from 'node:fs'
 import { chmod, lstat, readdir, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -75,4 +76,42 @@ export async function deleteProjectFolder(path, options) {
   await makeWritable(target)
   await rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }) // retries: Windows locks files briefly
   return target
+}
+
+// Delete is only for folders on this computer's own disk: a project folder on a network share or a mounted server
+// IS the server's copy, and removing it removes the server's data. Fail closed: if we cannot tell, we do not delete.
+const NETWORK_MESSAGE = 'This project is in a server or network folder, so it cannot be deleted from here. Nothing was changed.'
+const UNKNOWN_MESSAGE = 'Could not tell whether this project is on this computer or on a server, so it cannot be deleted from here. Nothing was changed.'
+
+// One line of `df -P` output: //host/share (SMB), host:/path (NFS, sshfs, user@host:/path).
+export function isNetworkLocation(dfLine) {
+  return /^(\/\/|[^/\s]+:\/)/.test(String(dfLine ?? '').trim())
+}
+
+function runDf(path) {
+  return new Promise((resolve, reject) => {
+    execFile('df', ['-P', '--', path], { timeout: 10_000, windowsHide: true }, (error, stdout) => (error ? reject(error) : resolve(stdout)))
+  })
+}
+
+export async function assertOnLocalDisk(path, { platform = process.platform, run = runDf, realNative = realpathSync.native } = {}) {
+  if (platform === 'win32') {
+    // A mapped network drive (Z:) resolves to its \\server\share form.
+    let resolved
+    try {
+      resolved = realNative(path)
+    } catch {
+      throw new Error(UNKNOWN_MESSAGE)
+    }
+    if (String(path).startsWith('\\\\') || resolved.startsWith('\\\\')) throw new Error(NETWORK_MESSAGE)
+    return
+  }
+  let line
+  try {
+    line = String(await run(path)).trim().split('\n').filter(Boolean).pop()
+  } catch {
+    throw new Error(UNKNOWN_MESSAGE)
+  }
+  if (!line || line.startsWith('Filesystem')) throw new Error(UNKNOWN_MESSAGE)
+  if (isNetworkLocation(line)) throw new Error(NETWORK_MESSAGE)
 }

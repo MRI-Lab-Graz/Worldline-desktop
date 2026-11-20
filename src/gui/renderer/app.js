@@ -16,7 +16,7 @@ import {
   describeActionNote, describeGetAll, canRunReckless, describeRecklessDialog, isDeleteWord, needsRecklessOffer, panelMatchesProject, planGetAll, planPaths,
   runSelectedBatches, runStillCurrent, startSequence
 } from './data-actions.js'
-import { describeDeletionRisk, describeFolderSize, projectNameMatches, withoutProject } from './delete-project-view.js'
+import { deleteRefusedNote, describeDeletionRisk, describeFolderSize, projectNameMatches, withoutProject } from './delete-project-view.js'
 import { previewPaths } from './reckless-preview.js'
 import { escapeHtml } from './escape-html.js'
 import { describeUpdates } from './update-notice.js'
@@ -2195,8 +2195,8 @@ elements.deleteProjectOpen.addEventListener('click', async () => {
   let preview
   try {
     preview = await api.getDeletionPreview(projectPath)
-  } catch {
-    elements.deleteProjectNote.textContent = 'This project cannot be deleted from here. Nothing was changed.'
+  } catch (error) {
+    elements.deleteProjectNote.textContent = deleteRefusedNote(error?.message)
     return
   }
   if (elements.commandProjectPath.value.trim() !== projectPath) return // the project changed while we looked

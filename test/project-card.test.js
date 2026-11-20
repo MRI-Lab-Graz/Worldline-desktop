@@ -100,6 +100,7 @@ test('the project card has a "project" part and a "right now" part, with Tools a
   const tools = /<button id="open-tools"[^>]*>[\s\S]*?<\/button>/.exec(strip)?.[0] ?? ''
   assert.match(tools, /Work on this project/)
   assert.match(tools, /button-primary/)
+  assert.match(tools, /work-bar/)
   assert.match(tools, /aria-controls="project-tools"[^>]*aria-expanded="false"|aria-expanded="false"[^>]*aria-controls="project-tools"/)
 })
 

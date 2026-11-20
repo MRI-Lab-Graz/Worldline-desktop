@@ -352,6 +352,36 @@ body {
   color: var(--ink-soft);
 }
 
+.work-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 3.25rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.work-bar-hint {
+  font-size: 0.85rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.work-bar-close {
+  display: none;
+}
+
+.work-bar[aria-expanded="true"] .work-bar-open {
+  display: none;
+}
+
+.work-bar[aria-expanded="true"] .work-bar-close {
+  display: inline;
+}
+
 .strip-state-group {
   display: flex;
   align-items: center;

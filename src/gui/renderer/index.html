@@ -356,9 +356,15 @@
             <span id="current-project-badge" class="badge badge-unknown">Unknown</span>
             <button id="current-project-bids-badge" class="badge badge-bids badge-button" type="button" hidden>BIDS</button>
             <button id="current-project-prism-badge" class="badge badge-bids badge-button" type="button" hidden>PRISM</button>
-            <button id="open-tools" class="button button-primary button-inline" type="button" aria-controls="project-tools" aria-expanded="false">Work on this project <span aria-hidden="true">▸</span></button>
           </div>
         </div>
+        <button id="open-tools" class="button button-primary work-bar" type="button" aria-controls="project-tools" aria-expanded="false">
+          <span class="work-bar-main">
+            <span class="work-bar-open">Work on this project <span aria-hidden="true">▸</span></span>
+            <span class="work-bar-close">Hide tools <span aria-hidden="true">▾</span></span>
+          </span>
+          <span class="work-bar-hint">Files, Sync, History, Health, Branches &amp; Ignore</span>
+        </button>
         <div id="project-strip-now" class="project-strip-part project-strip-now">
           <div>
             <p class="strip-label">Right now</p>

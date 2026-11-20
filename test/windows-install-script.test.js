@@ -114,7 +114,18 @@ test('Get-VerifiedFile checks the SHA-256 and throws on a mismatch, also for a f
 
 test('the app zip is verified before it is extracted', async () => {
   const fn = body(await readPs(), 'Install-App')
-  assert.ok(fn.indexOf('Get-VerifiedFile') !== -1 && fn.indexOf('Get-VerifiedFile') < fn.indexOf('Expand-Archive'))
+  assert.ok(fn.indexOf('Get-VerifiedFile') !== -1 && fn.indexOf('Get-VerifiedFile') < fn.indexOf('ExtractToDirectory'))
+})
+
+// 0.6.1: on a newer Windows runner image Expand-Archive failed with 'Cannot find an overload for "ExtractToDirectory"
+// ... argument count: "3"' (a newer Microsoft.PowerShell.Archive module on Windows PowerShell 5.1). The 2-argument
+// .NET call behaves the same on every Windows PowerShell and PowerShell 7 version; the target folder is new and empty.
+test('the zip is extracted with the plain .NET call, not Expand-Archive', async () => {
+  const fn = body(await readPs(), 'Install-App')
+  assert.doesNotMatch(fn, /Expand-Archive/)
+  assert.match(fn, /Add-Type -AssemblyName System\.IO\.Compression\.FileSystem/)
+  assert.match(fn, /\[IO\.Compression\.ZipFile\]::ExtractToDirectory\(\$zip, \$work\)/)
+  assert.ok(fn.indexOf('Remove-Item -LiteralPath $work') < fn.indexOf('ExtractToDirectory'), 'the 2-argument call needs a folder that does not exist yet')
 })
 
 test('the install folder defaults to LOCALAPPDATA', async () => {

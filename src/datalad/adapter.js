@@ -1848,7 +1848,8 @@ export class DataLadAdapter {
       }
       case 'push': {
         const projectPath = request.projectPath
-        const args = ['-C', projectPath, 'push']
+        // -r: nested subject datasets keep their own commits; without it the project is sent but the subjects stay local.
+        const args = ['-C', projectPath, 'push', '-r']
         if (request.remoteName) {
           assertSafeRemoteName(request.remoteName)
           args.push('--to', request.remoteName)

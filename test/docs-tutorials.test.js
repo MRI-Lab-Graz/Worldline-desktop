@@ -57,3 +57,13 @@ test('the multimodal tutorial shows the Setup remote and Choose data pictures', 
   assert.match(md, /12-setup-remote\.png/)
   assert.match(md, /13-choose-data\.png/)
 })
+
+test('the workflow doc explains adding PRISM data to a downloaded BIDS project', async () => {
+  const md = await read(new URL('docs/product/researcher-workflow.md', root))
+  assert.match(md, /## Add PRISM data to a downloaded BIDS project/)
+  const section = md.split('## Add PRISM data to a downloaded BIDS project')[1].split('\n## ')[0]
+  assert.match(section, /Based on a remote dataset/)
+  assert.match(section, /dataset_description\.json/)
+  assert.match(section, /participants\.tsv/)
+  assert.match(section, /same subject IDs/i)
+})

@@ -609,7 +609,7 @@ test('runCommand returns non-fatal clone advisories from stderr output', async (
 
 test('runCommand maps publish failure to researcher-facing remote message', async () => {
   const runner = new FakeRunner()
-  runner.set('datalad', ['-C', '/tmp/project', 'push'], {
+  runner.set('datalad', ['-C', '/tmp/project', 'push', '-r'], {
     exitCode: 1,
     stdout: '',
     stderr: 'No configured push target for this dataset',
@@ -2269,7 +2269,7 @@ test('addRemote rejects unsafe remote names', async () => {
 
 test('push can target one named remote', async () => {
   const runner = new FakeRunner()
-  runner.set('datalad', ['-C', '/tmp/project', 'push', '--to', 'backup'], {})
+  runner.set('datalad', ['-C', '/tmp/project', 'push', '-r', '--to', 'backup'], {})
 
   const result = await new DataLadAdapter({ runner }).runCommand('push', { projectPath: '/tmp/project', remoteName: 'backup' })
 

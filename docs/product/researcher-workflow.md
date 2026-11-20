@@ -36,6 +36,17 @@ Large projects do not have to be downloaded as a whole. In the **Files** tab, op
 
 Known limitation: subject folders that are not set up on this computer yet (a project copied without its sub-datasets) do not appear in the panel, and the panel then cannot tell you they exist. To set them up, either create the project again with **Based on a remote dataset** (this installs the sub-datasets too), or run `datalad get -n -r .` in a terminal inside the project folder (it installs the sub-datasets without downloading any file content). Then press Refresh Files.
 
+## Add PRISM data to a downloaded BIDS project
+
+You have the imaging data on a server and your survey or physio data (PRISM) on your own computer. To bring them together in one project:
+
+1. **Download the project.** Use **Create project → Based on a remote dataset**. This also sets up the subject folders that are their own sub-datasets.
+2. **Use the same subject IDs.** The PRISM folders must carry the same subject IDs as the imaging folders (for example `sub-001` becomes `sub-134001`). Otherwise they are treated as different people. The app cannot guess the match, so rename the folders yourself and keep a note of which ID became which.
+3. **Copy all the PRISM data into the project folder.** Files go into the matching subject folders on their own. When your computer asks about `dataset_description.json`, `participants.tsv` or `participants.json`, choose **keep both** or **skip**, so the project's own files are not replaced. Add the PRISM rows and fields to them by hand afterwards, and copy `project.json` in.
+4. **Save.** One Save records the new files inside each subject folder and in the project; nothing is left over.
+
+Subject folders with no match in the downloaded project are new folders. They stay part of the main project until you turn each one into its own sub-dataset with **Convert to subdataset** in Files. Your saves stay on this computer until you send them with **Send my saves**.
+
 ## DataLad action surface in MVP
 
 For DataLad-enabled projects, the compact action group should include:

@@ -39,12 +39,14 @@ test('Save on a real DataLad dataset hands the file to git-annex', async () => {
     input.value = 'e2e: real annex roundtrip'
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
+  // Save is gray until the new file is listed as a change
+  await app.page.waitForFunction(() => !document.getElementById('save-project').disabled, undefined, { timeout: 15_000 })
   await app.page.evaluate(() => document.getElementById('save-project').click())
 
   await app.page.waitForFunction(
     () => {
       const el = document.getElementById('save-project')
-      return !el.disabled && el.textContent.trim() === 'Save this step'
+      return el.textContent.trim() === 'Save this step' // gray again once nothing is left to save
     },
     undefined,
     { timeout: 30_000 }

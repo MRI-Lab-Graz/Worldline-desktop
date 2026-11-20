@@ -86,3 +86,31 @@ test('the small logo in the header is as tall as the buttons beside it', () => {
   assert.match(css, /\.hero-logo\s*\{[^}]*display:\s*block/) // an inline image adds a line gap and sits off-centre
   assert.match(css, /\.hero-slim \.hero-logo\s*\{[^}]*width:\s*var\(--header-control-height\)[^}]*height:\s*var\(--header-control-height\)/)
 })
+
+test('Save is grayed out only for a loaded status, and a gray Save says why in its tooltip', () => {
+  const body = fn('function updateSaveButtonState')
+  assert.match(body, /statusKnown: Boolean\(snapshot\)/)
+  assert.match(body, /saveProjectButton\.title = gating\.disabled \? gating\.guidance\.text : SAVE_BUTTON_TITLE/)
+  assert.match(html, /id="save-project"[^>]*title="Save the current state of your files with a message\. Works fully offline\."/)
+})
+
+test('a Refresh button next to All and None re-reads the changed files, so a missed change never leaves Save gray', () => {
+  assert.match(panel, /<button id="changed-files-refresh"[^>]*type="button"[^>]*>\s*Refresh\s*<\/button>/)
+  assert.ok(at('id="changed-files-refresh"') < at('id="changed-files-select-all"'), 'Refresh comes first, All and None keep their place')
+  assert.match(app, /changedFilesRefreshButton\.addEventListener\('click', \(\) => void refreshWorkingTreeStatus\(state\.rootProjectPath\)\)/)
+  assert.doesNotMatch(app, /changedFilesRefreshButton\.disabled\s*=\s*true/) // never grayed out with the rest
+})
+
+// A top-level const is not usable before its line runs. updateSaveButtonState() is called while app.js loads,
+// so anything it reads must already be declared by then (the CI Windows e2e crashed at startup on this).
+test('what updateSaveButtonState reads is declared before the first call that runs at load', () => {
+  const lines = app.split('\n')
+  const firstCall = lines.findIndex((line) => line === 'updateSaveButtonState()' || /^updateSaveButtonState\(\)/.test(line))
+  assert.ok(firstCall >= 0, 'a top-level call exists')
+  const start = app.indexOf('function updateSaveButtonState')
+  const body = app.slice(start, app.indexOf('\n}\n', start))
+  for (const name of new Set(body.match(/\b[A-Z][A-Z0-9_]{3,}\b/g) ?? [])) {
+    const declared = lines.findIndex((line) => new RegExp(`^(const|let) ${name}\\b`).test(line))
+    if (declared >= 0) assert.ok(declared < firstCall, `${name} is declared at line ${declared + 1}, after the load-time call at line ${firstCall + 1}`)
+  }
+})

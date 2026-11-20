@@ -210,6 +210,7 @@ const elements = {
   branchStatus: document.getElementById('branch-status'),
   workingTreeSummary: document.getElementById('working-tree-summary'),
   changedFilesOutput: document.getElementById('changed-files-output'),
+  changedFilesRefreshButton: document.getElementById('changed-files-refresh'),
   changedFilesSelectAllButton: document.getElementById('changed-files-select-all'),
   changedFilesSelectNoneButton: document.getElementById('changed-files-select-none'),
   ignoreRulesScopeRoot: document.getElementById('ignore-rules-scope-root'),
@@ -453,6 +454,8 @@ elements.clearRecentProjectsButton.addEventListener('click', () => {
   renderRecentProjects()
   setLastActionState('Recent project list cleared.', 'idle')
 })
+
+elements.changedFilesRefreshButton.addEventListener('click', () => void refreshWorkingTreeStatus(state.rootProjectPath))
 
 elements.changedFilesSelectAllButton.addEventListener('click', () => {
   const filePaths = (state.workingTreeSnapshot?.files ?? []).map((entry) => entry.path)
@@ -3699,6 +3702,7 @@ function gatherSavePaths() {
 }
 
 function updateSaveButtonState() {
+  const SAVE_BUTTON_TITLE = 'Save the current state of your files with a message. Works fully offline.' // local: this runs at load, before later top-level consts exist
   const snapshot = state.workingTreeSnapshot
   const prismMode = state.rootProjectPrism ? (state.rootProjectPrism.kind === 'bids' ? 'bids' : state.rootProjectPrism.introducesPrism ? 'conversion' : 'gated') : undefined
 
@@ -3708,12 +3712,14 @@ function updateSaveButtonState() {
     hasConflicts: Boolean(snapshot?.conflictCount),
     mergeInProgress: Boolean(snapshot?.mergeInProgress),
     hasChanges: Boolean(snapshot && !snapshot.clean),
+    statusKnown: Boolean(snapshot),
     hasIdentity: !shouldBlockForIdentity('save', state.gitIdentity),
     validityBlocked: Boolean(currentSaveValidity()?.blocksSave),
     prismMode
   })
 
   elements.saveProjectButton.disabled = gating.disabled
+  elements.saveProjectButton.title = gating.disabled ? gating.guidance.text : SAVE_BUTTON_TITLE
   elements.saveProjectButton.hidden = Boolean(snapshot?.mergeInProgress)
   renderSaveValidity() // "files changed since the check" follows every status refresh
   const nudge = vagueMessageNudge(elements.message.value)

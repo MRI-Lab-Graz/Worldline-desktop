@@ -1704,7 +1704,7 @@ export class DataLadAdapter {
       })
     }
 
-    if (warnings.length === 0 && commandName === 'cloneInstall') {
+    if (warnings.length === 0 && commandName === 'cloneInstall' && !runResult.failed) {
       const meaningfulLines = stderr.split(/\r?\n/).filter((l) => l.trim() && !/^\[INFO\]/i.test(l.trim()))
       if (meaningfulLines.length > 0) {
         warnings.push({

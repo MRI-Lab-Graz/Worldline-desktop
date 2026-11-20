@@ -160,6 +160,23 @@ try {
   await shot('12-setup-remote', false)
   await page.evaluate(() => document.getElementById('close-settings').click())
 
+  // Setup -> Connection Favorites: two named server addresses (made-up names; nothing is contacted).
+  await page.evaluate(() => document.getElementById('open-settings').click())
+  await page.waitForFunction(() => !document.getElementById('settings-card').hidden)
+  for (const [name, address] of [['Lab server', 'ssh://lab-server/data/mri/'], ['Datalad server', 'ssh://datalad/datalad/mri/MRI-Lab_Repository/']]) {
+    await page.fill('#favorites-name', name)
+    await page.fill('#favorites-address', address)
+    await page.click('#favorites-add')
+    await page.waitForFunction((n) => document.getElementById('favorites-list').textContent.includes(n), name)
+  }
+  await page.evaluate(() => {
+    document.getElementById('favorites-note').textContent = '' // "Added." is not part of the picture
+    document.getElementById('favorites-list').scrollIntoView({ block: 'center' })
+  })
+  await settle()
+  await page.locator('.setup-section:has(#favorites-list)').screenshot({ path: out + '14-connection-favorites.png' }) // just this section
+  await page.evaluate(() => document.getElementById('close-settings').click())
+
   // Answer the "can you send changes back?" question so the next picture is only about the merge.
   await page.evaluate(() => document.getElementById('open-settings').click())
   await page.selectOption('#source-accepts-select', 'yes')
@@ -193,6 +210,15 @@ try {
   await tick('suffix', 'T1w')
   await page.evaluate(() => document.getElementById('data-panel-section').scrollIntoView())
   await shot('13-choose-data')
+
+  // Delete dialog: only ever opened and cancelled. The name is never typed, so nothing can be deleted.
+  await page.evaluate(() => document.getElementById('open-settings').click())
+  await page.waitForFunction(() => !document.getElementById('settings-card').hidden)
+  await page.evaluate(() => document.getElementById('delete-project-open').click())
+  await page.waitForFunction(() => !document.getElementById('delete-project-overlay').hidden && document.getElementById('delete-project-size').textContent.trim() !== '', null, { timeout: 30000 })
+  await shot('15-delete-project', false)
+  await page.evaluate(() => document.getElementById('delete-project-cancel').click())
+  await page.waitForFunction(() => document.getElementById('delete-project-overlay').hidden)
 } finally {
   await app?.close()
   await wipe()

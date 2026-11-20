@@ -172,3 +172,17 @@ Department network shares can be used like any other folder: choose
 **Create Project → Based on a remote dataset → Network Folder** and enter a
 UNC path (`\\server\share\dataset`), an `smb://` URL, or a mounted share.
 No SSH or server setup is involved.
+
+## Working with a server over SSH
+
+If your lab keeps its projects on a server you log in to with SSH, type the address in
+**Create Project → Based on a remote dataset → Network Folder**, for example
+`ssh://datalad/datalad/mri/MRI-Lab_Repository/`, and press **Browse** to click through the
+folders on the server. The app uses your own SSH login; it never asks for a password, so key login
+must already work (try `ssh your-server` in a terminal first). On Windows, if your key has a
+passphrase, the "OpenSSH Authentication Agent" service must be running.
+
+To avoid typing the address every time, name it once in **Setup → Connection Favorites**. In
+Create Project you then pick it from the **Favorite** list.
+
+![Setup, Connection Favorites: a named server address](_static/screenshots/14-connection-favorites.png)

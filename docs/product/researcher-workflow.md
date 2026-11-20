@@ -63,3 +63,14 @@ To keep daily scientific version control smooth without adding advanced Git comp
 4. Before branch switch/create, check for dirty state and guide users to save first while still allowing an informed continue path when safe.
 5. Show a lightweight recent-commit list for quick confidence checks after Save and branch actions.
 6. Auto-refresh the working-tree summary and file list when files change on disk (scoped to the active project, debounced), instead of relying on a manual refresh button as the primary mechanism. The watcher should ignore DataLad/git internals (`.git/`, `.datalad/`, `.git/annex/`) and OS noise files, and should pause while a Save/Get/Update/Publish command is in flight so it never races with that command's own status update. Manual refresh remains available as a fallback.
+
+
+## Delete a project you no longer need
+
+**Setup → This project → Danger zone → Delete this project…** removes the project's folder from this
+computer. The dialog first shows how big it is and what would be lost (unsaved changes, saves not sent,
+data that exists only here); you must type the project's name to confirm. Copies on a remote are never touched.
+For safety, delete is only offered for folders on this computer's own disk, not for a network share or a
+mounted server folder.
+
+![The Delete this project dialog: size, what would be lost, and the name to type](../_static/screenshots/15-delete-project.png)

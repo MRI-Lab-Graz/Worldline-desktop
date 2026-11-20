@@ -19,6 +19,22 @@ test('every screenshot a tutorial shows exists', async () => {
   }
 })
 
+test('every screenshot the README, install guide and product docs show exists', async () => {
+  for (const file of ['README.md', 'docs/install.md', ...productDocs]) {
+    const md = await read(new URL(file, root))
+    for (const [, name] of md.matchAll(/_static\/screenshots\/([^)\s]+)\)/g)) {
+      await access(new URL(name, shots)).catch(() => assert.fail(`${file} shows missing ${name}`))
+    }
+  }
+})
+
+test('the server and delete features have a picture in the docs', async () => {
+  const install = await read(new URL('docs/install.md', root))
+  const workflow = await read(new URL('docs/product/researcher-workflow.md', root))
+  assert.match(install, /_static\/screenshots\/14-connection-favorites\.png/)
+  assert.match(workflow, /_static\/screenshots\/15-delete-project\.png/)
+})
+
 test('user-facing docs use the current names, not the old ones', async () => {
   for (const file of userDocs) {
     const md = await read(new URL(file, root))

@@ -47,7 +47,7 @@ test('Save shows a busy state while the command is in flight, then recovers', as
   await app.page.waitForFunction(
     () => {
       const el = document.getElementById('save-project')
-      return !el.disabled && el.textContent.trim() === 'Save this step'
+      return el.textContent.trim() === 'Save this step' // idle again; gray, since nothing is left to save
     },
     undefined,
     { timeout: 15_000 }

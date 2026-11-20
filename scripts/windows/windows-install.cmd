@@ -151,7 +151,8 @@ function Install-App {
     $zip = Join-Path ([IO.Path]::GetTempPath()) $AppZipName
     Get-VerifiedFile -Url $AppZipUrl -Sha256 $AppZipSha256 -OutFile $zip
     Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
-    Expand-Archive -LiteralPath $zip -DestinationPath $work -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::ExtractToDirectory($zip, $work) # plain .NET call: a newer archive module broke the usual unzip cmdlet on Windows PowerShell 5.1
     Remove-Item -LiteralPath $zip -Force
     if (-not (Test-Path -LiteralPath (Join-Path $work 'Worldline Desktop.exe'))) {
         throw "The app zip does not contain 'Worldline Desktop.exe'."

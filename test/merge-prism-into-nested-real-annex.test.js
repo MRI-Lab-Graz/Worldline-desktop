@@ -4,12 +4,18 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { cp, mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DataLadAdapter } from '../src/datalad/adapter.js'
 import { ProcessRunner } from '../src/datalad/process-runner.js'
 import { deleteProjectFolder } from '../src/gui/delete-project.js'
+
+// A runner (Windows CI) has no git identity; datalad refuses to save without one. This file's own, nothing global.
+const gitConfig = join(mkdtempSync(join(tmpdir(), 'dlad-merge-prism-cfg-')), 'gitconfig')
+writeFileSync(gitConfig, '[user]\n\tname = Test\n\temail = test@example.org\n')
+process.env.GIT_CONFIG_GLOBAL = gitConfig
 
 const has = (cmd, args) => { try { execFileSync(cmd, args, { stdio: 'ignore' }); return true } catch { return false } }
 const hasTools = has('git', ['annex', 'version']) && has('datalad', ['--version'])

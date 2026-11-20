@@ -1,4 +1,6 @@
-# Beta testing guide (0.6.0-beta.3)
+# Beta testing guide
+
+> **0.6.1 is a normal release now.** Install it from the [install guide](install.md). This page is kept for future pre-releases; the links below are the last beta (0.6.0-beta.3) and are out of date.
 
 Thank you for testing Worldline Desktop. This is a **beta**: a version that is not finished and has not been used on all systems yet. It is published as a GitHub *pre-release*, so the normal download links do not give it to you; use the links below.
 

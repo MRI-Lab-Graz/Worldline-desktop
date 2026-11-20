@@ -1,6 +1,28 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release).
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1.
+
+## 0.6.1
+
+The first stable 0.6 release. GitHub's "latest release" now points here, so the install links without a version number work again.
+
+**New**
+- **Browse a server's folders:** in Create project, Network Folder, type `ssh://server/folder` and press Browse to click through the folders on the server (it uses your own SSH login, key only, no password prompt). Folder names with umlauts and other scripts work, and on Windows the app never looks for `ssh` in the current folder.
+- **Connection Favorites:** give a server address a name once in Setup and pick it by name in Create project.
+- **OpenNeuro web page addresses:** if you paste the web address of a dataset, the app says so and suggests the repository address to use instead.
+- **Delete this project** (Setup, Danger zone): type the project's name to confirm. The dialog counts what only exists on this computer, including inside nested datasets. It is only offered for folders on this computer's own disk, never for a network share or mounted server folder.
+
+**Better**
+- **Save panel:** the message box comes first and is larger; what changed (left) and the check result (right) sit side by side. Save is grayed out, with the reason, when there is nothing to save, and a **Refresh** button re-reads the changes.
+- **Work on this project** is a full-width bar that stays visible as **Hide tools** while the tools are open.
+- **Send my saves:** if the server's copy of a project has the branch open, the app now explains that your saves are safe and what to ask the server's owner, instead of a general failure message.
+- **Files tab:** symbols instead of words with buttons on hover; **Unlock** is only offered for files that are still locked.
+- **Linux:** the install script adds the app icon and no longer needs a manual FUSE 2 install on Fedora.
+
+**Upgrade notes / known limits**
+- Builds are not code-signed. Use the install scripts, not a double-click on a downloaded app.
+- Windows has been tested less than macOS. The server folder browser needs a working SSH key login (on Windows the "OpenSSH Authentication Agent" service must be running if your key has a passphrase).
+- If the app you installed has a name that starts with "DataLad", it is the old 0.5.5: install again with the script.
 
 ## 0.6.0-beta.3 (pre-release)
 

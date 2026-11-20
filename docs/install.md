@@ -1,16 +1,14 @@
 # Install & first launch
 
-Trying the beta (a pre-release)? See the [beta testing guide](beta-testing.md).
+Trying a pre-release (beta)? See the [beta testing guide](beta-testing.md).
 
 ## Recommended: install with a script
 
-> **Right now only a beta exists (0.6.0-beta.3).** GitHub's "latest release" is still the old version 0.5.5, from before the rename, which has different file names, so the `latest` links below do not work yet. If the app you installed has a name that starts with "DataLad", you got that old version. Use the tagged links in the [beta testing guide](beta-testing.md); on macOS (Apple silicon):
+> **If the app you installed has a name that starts with "DataLad", it is the old version 0.5.5, from before the rename.** Install again with the script for your system. On macOS (Apple silicon):
 >
 > ```bash
-> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/download/v0.6.0-beta.3/macos-install.sh | bash
+> curl -fsSL https://github.com/MRI-Lab-Graz/Worldline-desktop/releases/latest/download/macos-install.sh | bash
 > ```
->
-> Once a stable 0.6 is released, the `latest` links work as written and this note goes away.
 
 The releases are not code-signed, so there is no installer to double-click. Instead a small script downloads the app,
 checks it against a checksum written into the script itself, and sets everything up. You get no security warning.
@@ -36,7 +34,7 @@ checks it against a checksum written into the script itself, and sets everything
 > distribution (it never runs `sudo` itself). See [datalad.org](https://www.datalad.org/) for more. The app's
 > diagnostics screen tells you what's missing.
 
-**PRISM projects** (a `project.json` in the project folder) get a PRISM badge. The project card shows **✓ valid** or the number of problems, and in the Save area the step **Is it valid?** shows the result with a **Check again** button. Save only goes through when
+**PRISM projects** (a `project.json` in the project folder) get a PRISM badge. The project card shows **✓ valid** or the number of problems, and in the Save area the **Is it valid?** box shows the result with a **Check again** button. Save only goes through when
 the PRISM validator (which includes the BIDS check) reports the whole project valid; the save that adds
 `project.json` is the exception. **BIDS projects** (a `dataset_description.json` and no `project.json`) are checked
 the same way before every save, with the BIDS validator. Both come with the one validator install, so there is no extra install. Files that are annexed but not downloaded do not count as errors. The

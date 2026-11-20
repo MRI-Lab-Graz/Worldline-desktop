@@ -31,3 +31,9 @@ export function withoutProject({ recentProjects, emojiByPath, titleByPath }, pat
   const drop = (map) => Object.fromEntries(Object.entries(map).filter(([key]) => key !== path))
   return { recentProjects: recentProjects.filter((p) => p !== path), emojiByPath: drop(emojiByPath), titleByPath: drop(titleByPath) }
 }
+
+// Why the dialog was refused: our own two sentences about servers are shown; anything else stays generic.
+export function deleteRefusedNote(message) {
+  const known = /(This project is in a server or network folder|Could not tell whether this project is on this computer)[^]*?Nothing was changed\./.exec(String(message ?? ''))
+  return known ? known[0] : 'This project cannot be deleted from here. Nothing was changed.'
+}

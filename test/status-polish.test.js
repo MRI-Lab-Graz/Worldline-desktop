@@ -39,9 +39,8 @@ test('only the last-action group stacks; the project badges group stays a row', 
   assert.doesNotMatch(ruleBody(css, '.strip-state-group'), /flex-direction:\s*column/)
   assert.match(ruleBody(css, '.strip-state-column') || '', /flex-direction:\s*column/)
   const groups = [...html.matchAll(/<div class="(strip-state-group[^"]*)">([\s\S]*?)<\/div>/g)]
-  const tools = groups.find((g) => g[2].includes('id="open-tools"'))
   const last = groups.find((g) => g[2].includes('id="last-action-state"'))
-  assert.ok(tools && last)
-  assert.doesNotMatch(tools[1], /strip-state-column/)
+  assert.ok(last)
+  assert.ok(!groups.some((g) => g[2].includes('id="open-tools"')), 'the Tools bar is its own row, not a badge')
   assert.match(last[1], /strip-state-column/)
 })

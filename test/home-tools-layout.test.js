@@ -117,8 +117,17 @@ test('focus follows the view swap', () => {
 test('decorative arrows are hidden from screen readers', () => {
   for (const id of ['open-tools', 'close-tools']) {
     const button = html.slice(at(`id="${id}"`), html.indexOf('</button>', at(`id="${id}"`)))
-    assert.doesNotMatch(button.replace(/<span aria-hidden="true">[←▸]<\/span>/g, ''), /[←▸]/, id)
+    assert.doesNotMatch(button.replace(/<span aria-hidden="true">[←▸▾]<\/span>/g, ''), /[←▸▾]/, id)
   }
+})
+
+test('the Tools bar shows Hide tools while open and is a big tap target', () => {
+  const css = read('../src/gui/renderer/styles.css')
+  assert.match(css, /\.work-bar-close\s*\{[^}]*display:\s*none/)
+  assert.match(css, /\.work-bar\[aria-expanded="true"\]\s*\.work-bar-open\s*\{[^}]*display:\s*none/)
+  assert.match(css, /\.work-bar\[aria-expanded="true"\]\s*\.work-bar-close\s*\{[^}]*display:\s*inline/)
+  assert.match(css, /\.work-bar\s*\{[^}]*width:\s*100%[^}]*min-height:\s*3\.25rem/)
+  assert.match(html, /Hide tools/)
 })
 
 test('tool panels carry no emoji badge and History is called History', () => {

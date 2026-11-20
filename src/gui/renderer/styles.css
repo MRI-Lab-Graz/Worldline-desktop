@@ -352,6 +352,36 @@ body {
   color: var(--ink-soft);
 }
 
+.work-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 3.25rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.work-bar-hint {
+  font-size: 0.85rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.work-bar-close {
+  display: none;
+}
+
+.work-bar[aria-expanded="true"] .work-bar-open {
+  display: none;
+}
+
+.work-bar[aria-expanded="true"] .work-bar-close {
+  display: inline;
+}
+
 .strip-state-group {
   display: flex;
   align-items: center;
@@ -2282,13 +2312,20 @@ select:disabled {
   outline-offset: 2px;
 }
 
-#save-checkpoint-panel {
-  counter-reset: save-step;
+.save-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
 }
 
-.save-step-num::before {
-  counter-increment: save-step;
-  content: counter(save-step) ' · ';
+#message {
+  font-size: 1.1rem;
+  padding: 0.8rem 1rem;
+}
+
+#save-valid-title {
+  font-size: 0.95rem;
 }
 
 .save-tips-off .save-tip {

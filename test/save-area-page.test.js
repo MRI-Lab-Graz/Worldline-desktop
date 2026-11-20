@@ -86,3 +86,10 @@ test('the small logo in the header is as tall as the buttons beside it', () => {
   assert.match(css, /\.hero-logo\s*\{[^}]*display:\s*block/) // an inline image adds a line gap and sits off-centre
   assert.match(css, /\.hero-slim \.hero-logo\s*\{[^}]*width:\s*var\(--header-control-height\)[^}]*height:\s*var\(--header-control-height\)/)
 })
+
+test('Save is grayed out only for a loaded status, and a gray Save says why in its tooltip', () => {
+  const body = fn('function updateSaveButtonState')
+  assert.match(body, /statusKnown: Boolean\(snapshot\)/)
+  assert.match(body, /saveProjectButton\.title = gating\.disabled \? gating\.guidance\.text : SAVE_BUTTON_TITLE/)
+  assert.match(html, /id="save-project"[^>]*title="Save the current state of your files with a message\. Works fully offline\."/)
+})

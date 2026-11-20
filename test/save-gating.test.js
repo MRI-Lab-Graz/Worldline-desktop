@@ -144,3 +144,34 @@ test('reconcileSelection auto-selects every change until the user has chosen, an
   const nested = reconcileSelection({ files: [{ path: 'sub', nestedFiles: [{ path: 'sub/a.txt' }] }], selected: new Set(['sub/a.txt']), explicit: true, preserve: true })
   assert.deepEqual([...nested.selected], ['sub/a.txt'])
 })
+
+// --- Save is grayed out only when the status is known and really empty ---
+
+const NOTHING = /Nothing to save/
+
+test('disabled with a reason when the status is known and there are no changes', () => {
+  const gating = computeSaveGating({ hasMessage: true, hasSelection: false, hasConflicts: false, hasChanges: false, statusKnown: true })
+  assert.equal(gating.disabled, true)
+  assert.match(gating.guidance.text, NOTHING)
+  assert.equal(gating.guidance.warning, false)
+})
+
+test('the reason does not depend on a message being typed', () => {
+  const gating = computeSaveGating({ hasMessage: false, hasSelection: false, hasConflicts: false, hasChanges: false, statusKnown: true })
+  assert.equal(gating.disabled, true)
+  assert.match(gating.guidance.text, NOTHING)
+})
+
+test('stays enabled when the status is unknown (failed, not loaded): never lock the user out on a guess', () => {
+  for (const statusKnown of [false, undefined]) {
+    const gating = computeSaveGating({ hasMessage: true, hasSelection: false, hasConflicts: false, hasChanges: false, statusKnown })
+    assert.equal(gating.disabled, false)
+    assert.doesNotMatch(gating.guidance.text, NOTHING)
+  }
+})
+
+test('changes make Save usable again, and conflicts and merges keep their own messages', () => {
+  assert.equal(computeSaveGating({ hasMessage: true, hasSelection: true, hasConflicts: false, hasChanges: true, statusKnown: true }).disabled, false)
+  assert.match(computeSaveGating({ hasMessage: true, hasSelection: false, hasConflicts: true, hasChanges: false, statusKnown: true }).guidance.text, /Resolve conflicts/)
+  assert.match(computeSaveGating({ hasMessage: true, hasSelection: false, hasConflicts: false, hasChanges: false, statusKnown: true, mergeInProgress: true }).guidance.text, /merge/i)
+})

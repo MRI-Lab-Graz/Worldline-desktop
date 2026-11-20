@@ -13,6 +13,7 @@
  *   hasIdentity?: boolean (git name+email set; defaults to true),
  *   hasMessage: boolean, hasSelection: boolean, hasConflicts: boolean, hasChanges: boolean,
  *   mergeInProgress?: boolean (a merge is being resolved; defaults to false),
+ *   statusKnown?: boolean (the changed-files list loaded fine; only then "no changes" grays Save out; defaults to false = stay enabled),
  *   prismMode?: 'gated' | 'conversion' | 'bids' (PRISM or BIDS project: everything is validated and saved together)
  * }} input
  * @returns {{ disabled: boolean, guidance: { text: string, warning: boolean } }}
@@ -25,6 +26,7 @@ export function computeSaveGating({
   hasIdentity = true,
   mergeInProgress = false,
   validityBlocked = false,
+  statusKnown = false,
   prismMode
 }) {
   if (mergeInProgress) {
@@ -41,6 +43,10 @@ export function computeSaveGating({
       disabled,
       guidance: { text: 'Conflicts detected. Resolve conflicts before saving.', warning: true }
     }
+  }
+
+  if (statusKnown && !hasChanges) {
+    return { disabled: true, guidance: { text: 'Nothing to save: no changes since your last save.', warning: false } }
   }
 
   if (hasChanges && !selected) {

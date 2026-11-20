@@ -3698,6 +3698,8 @@ function gatherSavePaths() {
   return [...state.selectedChangedPaths]
 }
 
+const SAVE_BUTTON_TITLE = 'Save the current state of your files with a message. Works fully offline.'
+
 function updateSaveButtonState() {
   const snapshot = state.workingTreeSnapshot
   const prismMode = state.rootProjectPrism ? (state.rootProjectPrism.kind === 'bids' ? 'bids' : state.rootProjectPrism.introducesPrism ? 'conversion' : 'gated') : undefined
@@ -3708,12 +3710,14 @@ function updateSaveButtonState() {
     hasConflicts: Boolean(snapshot?.conflictCount),
     mergeInProgress: Boolean(snapshot?.mergeInProgress),
     hasChanges: Boolean(snapshot && !snapshot.clean),
+    statusKnown: Boolean(snapshot),
     hasIdentity: !shouldBlockForIdentity('save', state.gitIdentity),
     validityBlocked: Boolean(currentSaveValidity()?.blocksSave),
     prismMode
   })
 
   elements.saveProjectButton.disabled = gating.disabled
+  elements.saveProjectButton.title = gating.disabled ? gating.guidance.text : SAVE_BUTTON_TITLE
   elements.saveProjectButton.hidden = Boolean(snapshot?.mergeInProgress)
   renderSaveValidity() // "files changed since the check" follows every status refresh
   const nudge = vagueMessageNudge(elements.message.value)

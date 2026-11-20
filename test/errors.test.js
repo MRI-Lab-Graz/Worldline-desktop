@@ -177,3 +177,14 @@ test('mapCommandError does not call a timeout or a network failure an authentica
   }
   assert.notEqual(mapCommandError('push', { stderr: '', timedOut: true }).code, 'AUTH_FAILED')
 })
+
+test('mapCommandError explains a push to a server copy that has the branch open (real datalad output)', () => {
+  const text = 'publish(error): . (dataset) [refs/heads/master->origin:refs/heads/master [remote rejected] (branch is currently checked out)]\naction summary:\n  publish (error: 1, notneeded: 1)'
+  for (const result of [{ stdout: text, stderr: '' }, { stdout: '', stderr: text }]) {
+    const mapped = mapCommandError('push', result)
+    assert.equal(mapped.code, 'REMOTE_BRANCH_CHECKED_OUT')
+    assert.match(mapped.message, /server/i)
+    assert.match(mapped.message, /receive\.denyCurrentBranch/)
+  }
+  assert.notEqual(mapCommandError('get', { stdout: text, stderr: '' }).code, 'REMOTE_BRANCH_CHECKED_OUT')
+})

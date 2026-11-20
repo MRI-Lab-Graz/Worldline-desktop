@@ -22,7 +22,7 @@ test('parseSshAddress refuses anything that could reach the shell or ssh options
 
 test('the ssh command never asks for a password, times out, and ends options before the host', () => {
   const args = sshBrowseArgs({ host: 'mri', path: '/my study' })
-  assert.deepEqual(args.slice(0, 5), ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '--'])
+  assert.deepEqual(args.slice(0, 5), ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=30', '--'])
   assert.equal(args[5], 'mri')
   assert.equal(args[6], "cd -- '/my study' && ls -1Ap")
   assert.equal(args.length, 7)
@@ -72,5 +72,8 @@ test('ssh is started with the current-folder lookup switched off, and still boun
   assert.equal(options.env.NoDefaultCurrentDirectoryInExePath, '1')
   assert.equal(options.env.PATH, '/x')
   assert.equal(options.windowsHide, true)
-  assert.ok(options.timeout > 0 && options.maxBuffer > 0)
+  assert.equal(options.timeout, 60_000) // a VPN that has been idle can need a while for the first connection
+  assert.ok(options.maxBuffer > 0)
+  // ssh must give up on connecting before the whole listing is cut off, or its own clear message is never seen
+  assert.ok(Number(/ConnectTimeout=(\d+)/.exec(sshBrowseArgs({ host: 'h', path: '/' }).join(' '))[1]) * 1000 < options.timeout)
 })

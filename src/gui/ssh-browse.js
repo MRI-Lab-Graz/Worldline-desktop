@@ -11,7 +11,7 @@ const SEGMENT = /^[\p{L}\p{M}\p{N} ._+@=,:~()-]+$/u
 const isOpenableName = (name) => SEGMENT.test(name) && name !== '.' && name !== '..'
 const MAX_FOLDERS = 1000
 const MAX_OUTPUT_BYTES = 1024 * 1024
-const TIMEOUT_MS = 20_000
+const TIMEOUT_MS = 60_000 // a VPN that has been idle can need a while for the first connection; ssh itself gives up first (ConnectTimeout)
 
 export function parseSshAddress(text) {
   const match = /^ssh:\/\/([^/]+)(\/.*)?$/.exec(String(text ?? '').trim())
@@ -33,7 +33,7 @@ export function parentOf(path) {
 }
 
 export function sshBrowseArgs({ host, path }) {
-  return ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '--', host, `cd -- '${path}' && ls -1Ap`]
+  return ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=30', '--', host, `cd -- '${path}' && ls -1Ap`]
 }
 
 // `ls -p` marks folders with a trailing slash. Hidden and oddly named entries are left out.

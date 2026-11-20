@@ -11,7 +11,7 @@ changes in the newly created project and make a clean first save.
 
 - Open an existing project
 - Read working-tree status
-- Select files for Save (step 1)
+- Choose which changed files a save includes
 - Write clear Save messages
 - Verify a successful save
 
@@ -31,20 +31,20 @@ changes in the newly created project and make a clean first save.
 
 1. Open the project in Worldline Desktop.
 2. Look at the project card: it names the project and says what the project check found. A project made in Tutorial 00 reads "DataLad project". A plain Git folder shows a **Git** badge.
-3. The **Save** area is a few small steps. Step **1 · What changed** lists the changed and untracked files.
-   Click **Show changes** next to a file to see exactly what changed in it before you save.
+3. The **Save** area has the message box on top. Below it, **What changed** lists the changed and untracked files.
+   Click **Show changes** next to a file to see exactly what changed in it before you save. If a file you just edited is not listed yet, press **Refresh**.
 
    ![The Files view (open it with Work on this project → Files), with changed items badged](../_static/screenshots/05-files.png)
 
 4. Every changed file starts ticked. Keep the ticks on the research files
    (`README.md`, `data/raw/participants.tsv`).
 5. Untick the scratch note `notes/todo.txt`.
-6. In the last step, **What did you do, and why?**, write a message in this format. A very vague message ("update", "fix", "wip") gets a nudge, never a block. **Use suggestion** fills in a starting text:
+6. In the box at the top, **What did you do, and why?**, write a message in this format. A very vague message ("update", "fix", "wip") gets a nudge, never a block. **Use suggestion** fills in a starting text:
    - `pilot: update participant table and project summary`
 
    ![The Save area: what changed, what did you do and why, Save this step](../_static/screenshots/04-save-checkpoint.png)
 
-7. Click **Save this step**. In a BIDS or PRISM project there is an extra step in the middle, **Is it valid?**, with the check result; a fresh "not valid" result holds the save back until you fix it.
+7. Click **Save this step**. In a BIDS or PRISM project the **Is it valid?** box next to **What changed** shows the check result; a fresh "not valid" result holds the save back until you fix it. When nothing is left to save, the button turns gray and says why.
 8. Re-check the list of changed files. The saved files are gone from it, and
    only `notes/todo.txt` is left. Open **Work on this project → History** to see your new
    save at the top.

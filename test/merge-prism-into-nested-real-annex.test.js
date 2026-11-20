@@ -21,6 +21,8 @@ const has = (cmd, args) => { try { execFileSync(cmd, args, { stdio: 'ignore' });
 const hasTools = has('git', ['annex', 'version']) && has('datalad', ['--version'])
 const skip = !hasTools && 'git-annex and datalad are needed'
 
+// Parent-level "is it saved" is asked of datalad: on Windows git-annex puts each subject on an adjusted branch, so a
+// plain `git status` in the parent can say "modified" for a subject that is fully saved.
 const run = (cwd, cmd, ...args) => execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' })
 
 // A BIDS source whose subject folders are already their own datasets (like the lab's server project).
@@ -63,7 +65,7 @@ test('PRISM files copied over a nested clone are saved into each subject in one 
     assert.equal(run(subPath, 'git', 'status', '--porcelain').trim(), '', `${sub} still has changes`)
     assert.match(run(subPath, 'git', 'ls-files'), new RegExp(`survey/${sub}_survey.tsv`), `${sub} did not record its file`)
   }
-  assert.equal(run(project, 'git', 'status', '--porcelain').trim(), '', 'the project still shows changes')
+  assert.match(run(project, 'datalad', 'status'), /nothing to save/, 'the project still shows changes')
   assert.equal(await readFile(join(project, 'dataset_description.json'), 'utf8'), '{"Name":"mri"}')
 })
 
@@ -77,7 +79,7 @@ test('deleting the clone leaves its source intact, nested subjects included', { 
   await deleteProjectFolder(project, { roots: [project], home: join(root, 'home') })
 
   assert.equal(await stat(project).then(() => true, () => false), false)
-  assert.equal(run(source, 'git', 'status', '--porcelain').trim(), '')
+  assert.match(run(source, 'datalad', 'status'), /nothing to save/)
   assert.equal(run(source, 'git', 'fsck', '--no-progress').includes('error'), false)
   for (const sub of ['sub-134001', 'sub-134002']) {
     assert.match(run(join(source, sub), 'git', 'ls-files'), new RegExp(`anat/${sub}_T1w.json`))

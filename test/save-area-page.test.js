@@ -6,13 +6,13 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 const html = read('src/gui/renderer/index.html')
 const app = read('src/gui/renderer/app.js')
 const css = read('src/gui/renderer/styles.css')
-const panel = /<section id="save-checkpoint-panel"[\s\S]*?<\/section>\s*<\/div>/.exec(html)?.[0] ?? /<section id="save-checkpoint-panel"[\s\S]*?<details id="last-action-details"/.exec(html)?.[0] ?? ''
+const panel = /<section id="save-checkpoint-panel"[\s\S]*?<details id="last-action-details"/.exec(html)?.[0] ?? ''
 const at = (text) => panel.indexOf(text)
 const fn = (name) => app.slice(app.indexOf(name), app.indexOf(name) + 2600)
 
-test('Save is three steps in order: what changed, is it valid, what did you do and why; then the button', () => {
+test('Save is message first, then changes and check side by side, then the button', () => {
   assert.ok(panel.length > 0)
-  const order = ['id="save-step-changes"', 'id="save-step-valid"', 'id="save-step-message"', 'id="save-project"']
+  const order = ['id="save-step-message"', 'class="save-grid"', 'id="save-step-changes"', 'id="save-step-valid"', 'id="save-project"']
   for (let i = 1; i < order.length; i++) assert.ok(at(order[i - 1]) >= 0 && at(order[i - 1]) < at(order[i]), `${order[i - 1]} before ${order[i]}`)
   assert.match(panel, /What did you do, and why\?/)
   assert.match(panel, /id="save-step-valid"[^>]*hidden/) // only BIDS/PRISM projects have a validity step
@@ -20,7 +20,7 @@ test('Save is three steps in order: what changed, is it valid, what did you do a
 })
 
 test('the validity step has its text, the list of problems and a Check again button', () => {
-  for (const id of ['save-validity-text', 'save-validity-problems', 'save-validity-recheck']) assert.ok(at(`id="${id}"`) > at('id="save-step-valid"') && at(`id="${id}"`) < at('id="save-step-message"'), id)
+  for (const id of ['save-validity-text', 'save-validity-problems', 'save-validity-recheck']) assert.ok(at(`id="${id}"`) > at('id="save-step-valid"') && at(`id="${id}"`) < at('id="save-project"'), id)
   assert.match(html, /id="save-validity-recheck"[^>]*type="button"/)
 })
 
@@ -67,11 +67,16 @@ test('the check refreshes the list of changed files before it remembers it, so a
   assert.match(body.slice(refresh, body.indexOf('rootProjectCheckedSignature =')), /runId !== validityRunId/) // still the newest run after waiting
 })
 
-test('step numbers are counted by the page, so a hidden validity step leaves no gap (1, 2 not 1, 3)', () => {
-  assert.doesNotMatch(panel, /<span class="save-tip">\d · <\/span>/) // no typed digits
-  assert.equal((panel.match(/class="save-tip save-step-num"/g) ?? []).length, 3)
-  assert.match(css, /#save-checkpoint-panel\s*\{[^}]*counter-reset:\s*save-step/)
-  assert.match(css, /\.save-step-num::before\s*\{[^}]*counter-increment:\s*save-step[^}]*counter\(save-step\)/)
+test('the columns carry no step numbers', () => {
+  assert.doesNotMatch(panel, /save-step-num/)
+})
+
+test('the two columns share the row and collapse when narrow or when one is hidden', () => {
+  assert.match(css, /\.save-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(/)
+})
+
+test('the message box is bigger than a normal field', () => {
+  assert.match(css, /#message\s*\{[^}]*font-size:\s*1\.1rem/)
 })
 
 test('the small logo in the header is as tall as the buttons beside it', () => {

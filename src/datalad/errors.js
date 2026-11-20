@@ -282,6 +282,17 @@ export function mapCommandError(commandName, runResult) {
     }
   }
 
+  // Git refuses a push to the branch that is open in a normal (non-bare) copy on the server. Push only.
+  if (commandName === 'push' && hasPattern(`${stderr}\n${stdout}`, /branch is currently checked out/)) {
+    return {
+      code: 'REMOTE_BRANCH_CHECKED_OUT',
+      title: 'The server copy does not accept saves yet',
+      message:
+        'Your saves are safe on this computer, but the server refused them: its copy of the project is a normal working folder with this branch open. Ask whoever runs the server to allow it (on the server, in that project: git config receive.denyCurrentBranch updateInstead), or to use a shared copy without open files.',
+      technicalDetails: details || stdout.trim()
+    }
+  }
+
   if (hasPattern(stderr, /no configured push target|no sibling|no remote|could not determine remote/)) {
     return {
       code: 'REMOTE_MISSING',

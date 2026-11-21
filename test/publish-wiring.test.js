@@ -37,3 +37,12 @@ test('the server-folder message is set after the push (its own status line would
   assert.ok(note > push, 'the prep sentence is shown after the push returns')
   assert.doesNotMatch(handler.slice(prepare, push), /setLastActionState/)
 })
+
+test('the server-folder note is shown only when the push worked, so a failed send never reads as a success', () => {
+  const app = readFileSync(new URL('../src/gui/renderer/app.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+  const handler = app.slice(app.indexOf('elements.publishProjectButton.addEventListener'))
+  const push = handler.indexOf("runWorkflowCommand('push'")
+  assert.match(handler.slice(push), /if \(prepNote && result\?\.ok === true\) setLastActionState\(prepNote\.text, prepNote\.tone\)/)
+  assert.equal(handler.split('setLastActionState(prepNote.text').length, 2, 'the note has one place only')
+  assert.ok(handler.includes('`${failText} Sending your saves carried on without it.`'), 'refused-only sentence')
+})

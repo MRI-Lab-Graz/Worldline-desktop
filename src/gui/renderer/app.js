@@ -1388,7 +1388,8 @@ elements.publishProjectButton.addEventListener('click', async () => {
     }
   }
   const result = await runWorkflowCommand('push', { projectPath, remoteName }, elements.publishProjectButton)
-  if (prepNote) setLastActionState(prepNote.text, prepNote.tone)
+  // A failed send keeps its own error line; the server-folder note would hide it.
+  if (prepNote && result?.ok === true) setLastActionState(prepNote.text, prepNote.tone)
   if (isSourceRefusal('push', result)) {
     // Learn from the refusal (wording only): a network problem or a stop never gets here.
     try {

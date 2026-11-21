@@ -1,15 +1,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseServerOrigin, underFavorite, wantedOrigin, ensureSshArgs, parseEnsureOutput } from '../src/datalad/subject-remotes.js'
+import { parseSshAddress } from '../src/gui/ssh-browse.js'
+import { underFavorite, wantedOrigin, ensureSshArgs, parseEnsureOutput } from '../src/datalad/subject-remotes.js'
 
 const P = { host: 'datalad', path: '/datalad/mri/MRI-Lab_Repository/proj' }
 const HOSTILE = ['sub-1;touch x', 'sub-$(id)', '../x', 'sub-a b', '-oProxyCommand=x', 'sub-１', '', 'sub-' + 'a'.repeat(64), "sub-a'b", 'sub-a\nb', 'sub-a\\b', 'sub-', 'sub-.x', 'sub-`id`']
 
-test('parseServerOrigin accepts only ssh://host/abs/path', () => {
-  assert.deepEqual(parseServerOrigin('ssh://datalad/a/b'), { host: 'datalad', path: '/a/b' })
-  assert.deepEqual(parseServerOrigin('ssh://me@h.example/a/b/'), { host: 'me@h.example', path: '/a/b' })
+test('parseSshAddress accepts only ssh://host/abs/path', () => {
+  assert.deepEqual(parseSshAddress('ssh://datalad/a/b'), { host: 'datalad', path: '/a/b' })
+  assert.deepEqual(parseSshAddress('ssh://me@h.example/a/b/'), { host: 'me@h.example', path: '/a/b' })
   for (const bad of ['datalad:a/b', 'https://x/a', '/local/path', 'C:\\x', 'ssh://-oProxyCommand=x/a', "ssh://h/a'b", 'ssh://h/a/../b', 'ssh://h/a;b', '', null, undefined])
-    assert.equal(parseServerOrigin(bad), null, String(bad))
+    assert.equal(parseSshAddress(bad), null, String(bad))
 })
 
 test('underFavorite', () => {

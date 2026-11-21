@@ -57,3 +57,12 @@ test('no message of the prep step claims the saves were sent (the push result is
   assert.doesNotMatch(rd('src/gui/renderer/app.js'), /still sent/)
   assert.doesNotMatch(rd('src/datalad/subject-remotes.js'), /still sent/)
 })
+
+test('SECURITY.md does not claim more than the code checks', () => {
+  const md = rd('SECURITY.md')
+  assert.match(md, /`worldline-ensure-subjects` \(see Controls\), only to a server you saved as a Connection Favorite/)
+  assert.match(md, /folder browser[^.]*any `?ssh:\/\/`? address you type/i)
+  assert.doesNotMatch(md, /runs only after the trust re-check above/)
+  assert.match(md, /after the project's trust check; the subjects' remotes are re-checked again right before the push/)
+  assert.match(md, /consent check on a list the page holds/)
+})

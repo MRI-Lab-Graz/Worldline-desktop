@@ -8,10 +8,6 @@ const MAX_SUBJECTS = 500
 const isSubject = (name) => typeof name === 'string' && SUBJECT.test(name)
 const segmentsOf = (path) => path.split('/').filter((s) => s !== '')
 
-export function parseServerOrigin(url) {
-  return parseSshAddress(url)
-}
-
 export function underFavorite(origin, favorites) {
   if (!checkedOrigin(origin)) return false
   const host = String(origin?.host ?? '').toLowerCase()

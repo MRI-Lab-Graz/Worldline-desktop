@@ -3,7 +3,8 @@ import { lstat, mkdir, open, readdir, readFile, realpath, rm, writeFile } from '
 import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import { formatEnvironmentDiagnostics } from './diagnostics.js'
 import { mapCommandError, MERGE_PREFLIGHT_ERRORS } from './errors.js'
-import { parseServerOrigin, underFavorite, wantedOrigin, ensureSshArgs, parseEnsureOutput, explainSshFailure, safeReason } from './subject-remotes.js'
+import { parseSshAddress } from '../gui/ssh-browse.js'
+import { underFavorite, wantedOrigin, ensureSshArgs, parseEnsureOutput, explainSshFailure, safeReason } from './subject-remotes.js'
 import { redactUrlCredentials } from './redact.js'
 import { ProcessRunner } from './process-runner.js'
 import { MAC_PRIVATE_BIN } from './resolve-tool.js'
@@ -599,7 +600,7 @@ export class DataLadAdapter {
     assertSafeRemoteName(remoteName)
     const result = { created: [], exists: [], refused: [], pointed: [], kept: [] }
     const origin = await this.#remoteUrl(projectPath, remoteName)
-    const parsed = origin && parseServerOrigin(origin)
+    const parsed = origin && parseSshAddress(origin)
     if (!parsed) return { ...result, skipped: 'no-ssh-origin' }
     if (!underFavorite(parsed, favorites)) return { ...result, skipped: 'not-a-favorite' }
     const todo = []
@@ -2098,7 +2099,7 @@ async function gitignoreExists(path) {
 // Origins the app may repoint: relative ones (./sub-134001) and ssh:// ones on the project's own server in the
 // project's own folder (a renamed subject). Everything else was set on purpose and is kept.
 function isDriftedOrigin(url, project) {
-  const parsed = parseServerOrigin(url)
+  const parsed = parseSshAddress(url)
   if (parsed) {
     const parent = (path) => path.slice(0, path.lastIndexOf('/')) || '/'
     return parsed.host.toLowerCase() === project.host.toLowerCase() && parent(parsed.path) === project.path

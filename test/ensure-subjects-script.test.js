@@ -13,8 +13,10 @@ const SCRIPT = path.join(__dirname, '..', 'server', 'worldline-ensure-subjects')
 const have = (cmd, args) => spawnSync(cmd, args, { stdio: 'ignore' }).status === 0
 const skip = process.platform === 'win32' ? 'bash script, not run on Windows'
   : !have('bash', ['-c', 'true']) ? 'bash missing'
-  : !have('git', ['--version']) ? 'git missing'
-  : !have('git', ['annex', 'version']) ? 'git-annex missing' : false
+  : !have('git', ['--version']) ? 'git missing' : false
+// Only the tests that really create a subject (git annex init) need git-annex; the refusal tests do not.
+const haveAnnex = have('git', ['annex', 'version'])
+const skipAnnex = skip || (haveAnnex ? false : 'git-annex missing')
 
 function setup () {
   const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wl-ens-')))
@@ -33,7 +35,7 @@ function setup () {
 }
 const git = (env, dir, ...a) => spawnSync('git', ['-C', dir, ...a], { env, encoding: 'utf8' }).stdout.trim()
 
-test('creates a subject dataset and reports created', { skip }, () => {
+test('creates a subject dataset and reports created', { skip: skipAnnex }, () => {
   const s = setup()
   const r = s.run(s.project, 'sub-001')
   assert.deepStrictEqual(r.out, ['created sub-001'])
@@ -44,7 +46,7 @@ test('creates a subject dataset and reports created', { skip }, () => {
   assert.ok(fs.existsSync(path.join(dir, '.git', 'annex')))
 })
 
-test('second run reports exists and changes nothing', { skip }, () => {
+test('second run reports exists and changes nothing', { skip: skipAnnex }, () => {
   const s = setup()
   s.run(s.project, 'sub-001')
   const dir = path.join(s.project, 'sub-001')
@@ -100,7 +102,7 @@ test('a bad project is an error with exit 2 and creates nothing', { skip }, () =
   for (const d of [outside, nogit, s.project, nested]) assert.ok(!fs.existsSync(path.join(d, 'sub-001')))
 })
 
-test('one refused name does not stop the others', { skip }, () => {
+test('one refused name does not stop the others', { skip: skipAnnex }, () => {
   const s = setup()
   const r = s.run(s.project, 'sub-001', '../x', 'sub-002')
   assert.strictEqual(r.code, 1)
@@ -123,8 +125,7 @@ test('a failed setup removes only the folder this run made', { skip }, () => {
   assert.ok(!fs.existsSync(path.join(s.project, 'sub-001')), 'half-made folder removed')
   assert.ok(fs.existsSync(path.join(s.project, 'sub-009')), 'pre-existing folder kept')
   assert.match(r.stdout, /^refused sub-001 setup failed$/m)
-  const again = s.run(s.project, 'sub-001')
-  assert.deepStrictEqual(again.out, ['created sub-001'])
+  if (haveAnnex) assert.deepStrictEqual(s.run(s.project, 'sub-001').out, ['created sub-001'])
 })
 
 test('script has no force/recursive-delete shortcuts and one guarded rm', () => {

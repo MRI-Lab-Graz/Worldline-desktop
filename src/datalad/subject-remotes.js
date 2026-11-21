@@ -67,7 +67,7 @@ export function parseEnsureOutput(stdout) {
 // Plain words for a failed ssh call. The server's own text is only looked at, never shown.
 export function explainSshFailure({ stderr = '', code, timedOut, missing } = {}) {
   if (missing) return 'This computer has no ssh program. Install the OpenSSH Client (Windows: Settings > Optional features) and try again.'
-  if (code === 127 || /command not found|worldline-ensure-subjects: not found/i.test(stderr)) return 'The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects (see docs/server-setup.md). Your saves are still sent.'
+  if (code === 127 || /worldline-ensure-subjects: (command )?not found/i.test(stderr)) return 'The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects. Sending your saves carried on without it.'
   if (timedOut) return 'The server did not answer in time. Check your network or VPN.'
   if (/permission denied/i.test(stderr)) return 'The server did not accept your key. Set up key login for this server first.'
   if (/host key verification failed|REMOTE HOST IDENTIFICATION/i.test(stderr)) return 'This computer does not know the server yet. Connect once in a terminal (ssh the-server), accept its fingerprint, then try again.'

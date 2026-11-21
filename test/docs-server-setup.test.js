@@ -27,7 +27,7 @@ test('SECURITY.md names the new SSH command and says the server script is the au
   assert.match(md, /BatchMode/)
 })
 
-const KEY = 'The lab server is not set up for this yet'
+const KEY = 'The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects. Sending your saves carried on without it.'
 
 test('the missing-script wording is the same in the app, the workflow doc, the server doc and SECURITY.md', () => {
   for (const f of ['src/datalad/subject-remotes.js', 'docs/product/researcher-workflow.md', 'docs/server-setup.md', 'SECURITY.md']) {
@@ -51,4 +51,9 @@ test('the docs index lists the server setup page', () => {
 
 test('the workflow doc says the subject remote is pointed at the new folder', () => {
   assert.match(rd('docs/product/researcher-workflow.md'), /points the subject's remote/)
+})
+
+test('no message of the prep step claims the saves were sent (the push result is not known yet)', () => {
+  assert.doesNotMatch(rd('src/gui/renderer/app.js'), /still sent/)
+  assert.doesNotMatch(rd('src/datalad/subject-remotes.js'), /still sent/)
 })

@@ -1377,7 +1377,7 @@ elements.publishProjectButton.addEventListener('click', async () => {
         const [first, ...more] = prep.refused
         const who = more.length > 0 ? `${first.name}, and ${more.length} more` : first.name
         const failText = `Could not set up ${who}: ${first.reason}.`
-        prepNote = { text: made > 0 ? `${madeText} ${failText}` : `${failText} Your other saves were still sent.`, tone: 'warning' }
+        prepNote = { text: made > 0 ? `${madeText} ${failText}` : `${failText} Sending your saves carried on without it.`, tone: 'warning' }
       } else if (made > 0) {
         prepNote = { text: madeText, tone: 'success' }
       }

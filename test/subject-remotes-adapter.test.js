@@ -211,7 +211,15 @@ test('a missing script (ssh exit 127) says the server is not set up, without raw
   const out = await prep(root, runner, async () => ({ code: 127, stdout: '', stderr: 'bash: worldline-ensure-subjects: command not found', timedOut: false }))
   assert.match(out.failed, /The lab server is not set up for this yet/)
   assert.match(out.failed, /worldline-ensure-subjects/)
-  assert.match(out.failed, /docs\/server-setup\.md/)
+  assert.match(out.failed, /carried on without it/)
   assert.doesNotMatch(out.failed, /bash|command not found/)
   assert.deepEqual(runner.changes(), [])
+})
+
+test('"git: command not found" inside the script is not mistaken for a missing script', async () => {
+  const root = await project(['sub-01'])
+  const runner = new Runner({ [root]: ORIGIN })
+  const out = await prep(root, runner, async () => ({ code: 1, stdout: '', stderr: 'git: command not found', timedOut: false }))
+  assert.match(out.failed, /could not be reached or did not answer/)
+  assert.doesNotMatch(out.failed, /not set up for this yet/)
 })

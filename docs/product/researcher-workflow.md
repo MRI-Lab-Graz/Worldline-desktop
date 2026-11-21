@@ -47,7 +47,7 @@ When you renamed a subject folder or added a new one, the lab server does not ha
 
 **Nothing is ever deleted on the server.** Only missing folders are added; a folder or subject that already exists is left as it is. A subject that already points to a place somewhere else keeps pointing there.
 
-The lab server needs a **one-time setup by its administrator** ([server setup](../server-setup.md)). If it is not done yet, the app shows "The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects (see docs/server-setup.md). Your saves are still sent." and **Send my saves** still sends everything it can. Ask your administrator to follow that page, then press **Send my saves** again.
+The lab server needs a **one-time setup by its administrator** ([server setup](../server-setup.md)). If it is not done yet, the app shows "The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects. Sending your saves carried on without it." and **Send my saves** still sends everything it can. Ask your administrator to follow that page, then press **Send my saves** again.
 
 This is also the step that follows "Add PRISM data to a downloaded BIDS project" below, when your PRISM subjects are new folders.
 

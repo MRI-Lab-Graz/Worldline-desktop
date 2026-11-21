@@ -62,6 +62,6 @@ You can restrict the SSH logins of non-administrators so only `git`, `git-annex`
 
 ## 6. How you know it works
 
-In Worldline Desktop, rename a subject (or add a new one) in a project whose remote is on the lab server and lies under a saved Connection Favorite. Press **Send my saves**. After the push the app lists the subjects it set up on the server. If the script is not installed, the app shows "The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects (see docs/server-setup.md). Your saves are still sent." and the push still runs.
+In Worldline Desktop, rename a subject (or add a new one) in a project whose remote is on the lab server and lies under a saved Connection Favorite. Press **Send my saves**. After the push the app lists the subjects it set up on the server. If the script is not installed, the app shows "The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects. Sending your saves carried on without it." and the push still runs.
 
 Back to the [researcher workflow](product/researcher-workflow.md).

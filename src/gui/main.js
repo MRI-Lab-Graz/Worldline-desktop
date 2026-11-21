@@ -7,6 +7,7 @@ import { getGitIdentity, setGitIdentity } from '../datalad/git-identity.js'
 import { createEnsureGuard, describeEnvFailure, ensureEnv, envBin, envStatus, resolveUv } from '../datalad/managed-env.js'
 import { checkProject, gateSave, inspectProject } from '../datalad/prism-gate.js'
 import { ProcessRunner } from '../datalad/process-runner.js'
+import { pushRefusal } from '../datalad/sourcedata-guard.js'
 import { assertCommandRequest } from '../datalad/schema.js'
 import { createResultCounter } from '../datalad/result-counter.js'
 import { createProjectWatcher } from './fs-watch.js'
@@ -427,6 +428,23 @@ handle('adapter:runCommand', async (event, payload) => {
     // The validator checked the whole project, so commit the whole project, whatever the UI selected.
     if (gate.saveAll) {
       request = { ...request, paths: [] }
+    }
+  }
+
+  if (PUSHES.has(payload.commandName)) {
+    // Raw data in sourcedata/ goes to the internal lab server only: checked here, before anything is sent.
+    const refusal = await pushRefusal({ runner: toolRunner, projectPath: request.projectPath, remoteName: request.remoteName })
+    if (refusal) {
+      return {
+        ok: false,
+        commandName: payload.commandName,
+        exitCode: 1,
+        stdout: '',
+        stderr: '',
+        failed: true,
+        warnings: [],
+        userError: { code: 'SOURCEDATA_PUBLIC_TARGET', title: 'Not sent', message: refusal, technicalDetails: '' }
+      }
     }
   }
 

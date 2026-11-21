@@ -2495,6 +2495,10 @@ select:disabled {
   text-align: left;
 }
 
+.favorites-form {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) auto;
+}
+
 .favorites-list {
   list-style: none;
   margin: 0 0 12px;

@@ -12,3 +12,15 @@ test('Publish pushes to the project\'s named remote instead of letting datalad g
   assert.ok(name !== -1 && name < push, 'the remote is looked up before the push')
   assert.match(handler.slice(push, push + 120), /\{ projectPath, remoteName \}/)
 })
+
+test('Send sets up the server folders of nested subjects before it pushes, and a failure never blocks the push', () => {
+  const app = readFileSync(new URL('../src/gui/renderer/app.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
+  const handler = app.slice(app.indexOf('elements.publishProjectButton.addEventListener'))
+  const prepare = handler.indexOf('api.prepareSubjectRemotes(projectPath, remoteName, favorites.map((f) => f.address))')
+  const push = handler.indexOf("runWorkflowCommand('push'")
+  assert.ok(prepare !== -1 && prepare < push, 'subject folders first, then the push')
+  assert.match(handler.slice(Math.max(0, prepare - 80), prepare), /try \{/)
+  assert.match(handler.slice(prepare, push), /catch/)
+  const preload = readFileSync(new URL('../src/gui/preload.js', import.meta.url), 'utf8')
+  assert.match(preload, /prepareSubjectRemotes: \(projectPath, remoteName, favorites\) =>\s*ipcRenderer\.invoke\('adapter:prepareSubjectRemotes', \{ projectPath, remoteName, favorites \}\)/)
+})

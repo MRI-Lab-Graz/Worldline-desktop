@@ -1363,6 +1363,22 @@ elements.publishProjectButton.addEventListener('click', async () => {
   }
 
   const remoteName = remoteNameForProject(state.projectHealthSnapshot, projectPath) ?? undefined
+  if (remoteName) {
+    // Nested subjects get their own folder on the server first. Trouble here never blocks the send itself.
+    try {
+      const prep = await api.prepareSubjectRemotes(projectPath, remoteName, favorites.map((f) => f.address))
+      if (prep?.failed) {
+        setLastActionState(`Could not check the server folders for your subjects: ${prep.failed}`, 'warning')
+      } else if (prep?.refused?.length > 0) {
+        setLastActionState(`Could not set up ${prep.refused.map((r) => r.name).join(', ')} on the server: ${prep.refused[0].reason}. Your other saves are still being sent.`, 'warning')
+      } else if (prep?.created?.length > 0) {
+        const n = prep.created.length
+        setLastActionState(`Created ${n} subject ${n === 1 ? 'folder' : 'folders'} on the server.`, 'success')
+      }
+    } catch {
+      // The send goes ahead; the server folders can be set up on the next try.
+    }
+  }
   const result = await runWorkflowCommand('push', { projectPath, remoteName }, elements.publishProjectButton)
   if (isSourceRefusal('push', result)) {
     // Learn from the refusal (wording only): a network problem or a stop never gets here.

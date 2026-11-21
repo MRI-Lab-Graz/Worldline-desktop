@@ -58,3 +58,11 @@ test('parseEnsureOutput', () => {
   for (const g of [undefined, null, '', 42, '\0\0', 'a'.repeat(10000)])
     assert.deepEqual(parseEnsureOutput(g), { created: [], exists: [], refused: [] })
 })
+
+test('underFavorite never trusts an origin that is not already clean', () => {
+  const favs = ['ssh://datalad/fav']
+  for (const path of ['/fav/../etc', '/fav//x', '/fav/./x', '/fav/x/', 'fav/x', "/fav/a'b"])
+    assert.equal(underFavorite({ host: 'datalad', path }, favs), false, path)
+  assert.equal(underFavorite({ host: '-oProxyCommand=x', path: '/fav/x' }, ['ssh://-oProxyCommand=x/fav']), false)
+  assert.equal(underFavorite({ host: 'datalad', path: '/fav/x' }, favs), true)
+})

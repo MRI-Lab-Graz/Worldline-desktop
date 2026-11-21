@@ -55,7 +55,7 @@ export function sshExecOptions(env = process.env) {
   return { timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES, windowsHide: true, env: { ...env, NoDefaultCurrentDirectoryInExePath: '1' } }
 }
 
-function runSsh(args) {
+export function runSsh(args) {
   return new Promise((resolve, reject) => {
     execFile('ssh', args, sshExecOptions(), (error, stdout, stderr) => {
       if (error?.code === 'ENOENT') return reject(error)

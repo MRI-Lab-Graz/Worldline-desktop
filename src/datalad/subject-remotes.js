@@ -13,6 +13,7 @@ export function parseServerOrigin(url) {
 }
 
 export function underFavorite(origin, favorites) {
+  if (!checkedOrigin(origin)) return false
   const host = String(origin?.host ?? '').toLowerCase()
   const have = segmentsOf(String(origin?.path ?? ''))
   for (const favorite of Array.isArray(favorites) ? favorites : []) {
@@ -62,3 +63,16 @@ export function parseEnsureOutput(stdout) {
   }
   return result
 }
+
+// Plain words for a failed ssh call. The server's own text is only looked at, never shown.
+export function explainSshFailure({ stderr = '', timedOut } = {}) {
+  if (timedOut) return 'The server did not answer in time. Check your network or VPN.'
+  if (/permission denied/i.test(stderr)) return 'The server did not accept your key. Set up key login for this server first.'
+  if (/host key verification failed|REMOTE HOST IDENTIFICATION/i.test(stderr)) return 'This computer does not know the server yet. Connect once in a terminal (ssh the-server), accept its fingerprint, then try again.'
+  if (/could not resolve|name or service not known|nodename nor servname/i.test(stderr)) return 'This computer does not know that server. Use its full name in the address.'
+  if (/no route|connection (refused|timed out)|network is unreachable/i.test(stderr)) return 'Cannot reach the server. Check your network or VPN.'
+  return 'The server could not be reached or did not answer as expected.'
+}
+
+// Free text from the server: no control characters, at most 120 characters.
+export const safeReason = (text) => String(text ?? '').replace(/[\u0000-\u001f\u007f-\u009f]/g, '').slice(0, 120)

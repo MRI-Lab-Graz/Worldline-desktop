@@ -597,28 +597,34 @@ export class DataLadAdapter {
   // Never throws for server trouble: that comes back as `failed` so the send itself can still go ahead.
   async prepareSubjectRemotes(projectPath, { remoteName, favorites = [], runSsh } = {}) {
     assertSafeRemoteName(remoteName)
-    const result = { created: [], exists: [], refused: [], pointed: [] }
+    const result = { created: [], exists: [], refused: [], pointed: [], kept: [] }
     const origin = await this.#remoteUrl(projectPath, remoteName)
     const parsed = origin && parseServerOrigin(origin)
     if (!parsed) return { ...result, skipped: 'no-ssh-origin' }
     if (!underFavorite(parsed, favorites)) return { ...result, skipped: 'not-a-favorite' }
     const todo = []
+    const kept = []
     let any = false
     for (const name of await this.#readSubdatasetPathsFromGitModules(projectPath)) {
       const wanted = wantedOrigin(parsed, name)
       const folder = join(projectPath, name)
-      if (!wanted || !(await fileExists(join(folder, '.git')))) continue
+      // A committed symbolic link could point at another repository: only a real folder counts as installed.
+      const info = await lstat(folder).catch(() => null)
+      if (!wanted || !info?.isDirectory() || !(await fileExists(join(folder, '.git')))) continue
       any = true
       const current = await this.#remoteUrl(folder, 'origin')
-      if (current !== wanted) todo.push({ name, folder, wanted, hadOrigin: current !== null })
+      if (current === wanted) continue
+      if (current !== null && !isDriftedOrigin(current, parsed)) kept.push(name)
+      else todo.push({ name, folder, wanted, hadOrigin: current !== null })
     }
+    result.kept = kept
     if (!any) return { ...result, skipped: 'no-subjects' }
     if (todo.length === 0) return result
     let ssh
     try {
       ssh = await runSsh(ensureSshArgs(parsed, todo.map((t) => t.name)))
     } catch (error) {
-      return { ...result, failed: explainSshFailure(error?.code === 'ENOENT' ? { stderr: 'could not resolve' } : {}) }
+      return { ...result, failed: explainSshFailure({ missing: error?.code === 'ENOENT' }) }
     }
     const parsedOut = parseEnsureOutput(ssh?.stdout)
     const requested = new Set(todo.map((t) => t.name))
@@ -2087,6 +2093,17 @@ async function gitignoreExists(path) {
     }
     throw error
   }
+}
+
+// Origins the app may repoint: relative ones (./sub-134001) and ssh:// ones on the project's own server in the
+// project's own folder (a renamed subject). Everything else was set on purpose and is kept.
+function isDriftedOrigin(url, project) {
+  const parsed = parseServerOrigin(url)
+  if (parsed) {
+    const parent = (path) => path.slice(0, path.lastIndexOf('/')) || '/'
+    return parsed.host.toLowerCase() === project.host.toLowerCase() && parent(parsed.path) === project.path
+  }
+  return !/[:]/.test(url) && !/^[/\\]/.test(url)
 }
 
 async function fileExists(path) {

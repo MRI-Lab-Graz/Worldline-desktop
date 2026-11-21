@@ -65,7 +65,8 @@ export function parseEnsureOutput(stdout) {
 }
 
 // Plain words for a failed ssh call. The server's own text is only looked at, never shown.
-export function explainSshFailure({ stderr = '', timedOut } = {}) {
+export function explainSshFailure({ stderr = '', timedOut, missing } = {}) {
+  if (missing) return 'This computer has no ssh program. Install the OpenSSH Client (Windows: Settings > Optional features) and try again.'
   if (timedOut) return 'The server did not answer in time. Check your network or VPN.'
   if (/permission denied/i.test(stderr)) return 'The server did not accept your key. Set up key login for this server first.'
   if (/host key verification failed|REMOTE HOST IDENTIFICATION/i.test(stderr)) return 'This computer does not know the server yet. Connect once in a terminal (ssh the-server), accept its fingerprint, then try again.'

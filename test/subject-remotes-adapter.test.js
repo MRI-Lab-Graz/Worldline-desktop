@@ -153,3 +153,54 @@ test('an unsafe remote name is refused before anything runs', async () => {
   const root = await project(['sub-01'])
   await assert.rejects(new DataLadAdapter({ runner: new Runner({}) }).prepareSubjectRemotes(root, { remoteName: '-x', favorites: FAVS, runSsh: sshOk('') }), /Invalid remote name/)
 })
+
+// --- fix round 1 ---
+const originCase = async (current, { subs = ['sub-01'] } = {}) => {
+  const root = await project(subs)
+  const runner = new Runner({ [root]: ORIGIN, ...(current === undefined ? {} : { [join(root, subs[0])]: current }) })
+  let calls = 0
+  const out = await prep(root, runner, async () => { calls++; return { code: 0, stdout: `created ${subs[0]}\n`, stderr: '', timedOut: false } })
+  return { out, calls, runner }
+}
+
+test('origins on another host, another protocol or a local path are kept, not sent, not changed', async () => {
+  for (const url of ['https://example.org/x/sub-01', 'ssh://other/lab/proj/sub-01', 'ssh://datalad/lab/other/sub-01', '/Volumes/USB/sub-01', 'datalad:lab/proj/sub-01', 'C:\\data\\sub-01']) {
+    const { out, calls, runner } = await originCase(url)
+    assert.deepEqual(out.kept, ['sub-01'], url)
+    assert.equal(calls, 0, url)
+    assert.deepEqual(runner.changes(), [], url)
+  }
+})
+
+test('missing, relative and same-host same-parent origins are processed; an equal one is not', async () => {
+  for (const url of [undefined, './sub-134001', 'ssh://DATALAD/lab/proj/sub-134001']) {
+    const { out, calls } = await originCase(url)
+    assert.equal(calls, 1, String(url))
+    assert.deepEqual(out.pointed, ['sub-01'])
+    assert.deepEqual(out.kept, [])
+  }
+  const same = await originCase(`${ORIGIN}/sub-01`)
+  assert.equal(same.calls, 0)
+  assert.deepEqual(same.out.kept, [])
+})
+
+test('a subject folder that is a symbolic link is not installed: not sent, not changed', { skip: process.platform === 'win32' }, async () => {
+  const { symlink } = await import('node:fs/promises')
+  const root = await project(['sub-01'])
+  const elsewhere = await mkdtemp(join(tmpdir(), 'wl-other-'))
+  await writeFile(join(elsewhere, '.git'), 'gitdir: x\n')
+  const { rm } = await import('node:fs/promises')
+  await rm(join(root, 'sub-01'), { recursive: true })
+  await symlink(elsewhere, join(root, 'sub-01'), 'dir')
+  const runner = new Runner({ [root]: ORIGIN })
+  const out = await prep(root, runner, async () => assert.fail('ssh called'))
+  assert.equal(out.skipped, 'no-subjects')
+  assert.deepEqual(runner.changes(), [])
+})
+
+test('a missing ssh program gets its own plain sentence', async () => {
+  const root = await project(['sub-01'])
+  const out = await prep(root, new Runner({ [root]: ORIGIN }), async () => { throw Object.assign(new Error('spawn ssh ENOENT'), { code: 'ENOENT' }) })
+  assert.match(out.failed, /no ssh program/)
+  assert.doesNotMatch(out.failed, /know that server/)
+})

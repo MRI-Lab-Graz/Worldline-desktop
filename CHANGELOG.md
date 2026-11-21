@@ -1,6 +1,11 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2.
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3.
+
+## 0.6.3
+
+- **Raw data stays off public hosts.** Send my saves (and sending a version tag) now refuses to send a project that tracks `sourcedata/` to GitHub, GitLab, GIN, Bitbucket, Codeberg, OpenNeuro or any web address, and says why. The internal lab server and local folders are unaffected. If the app cannot check where the project goes, nothing is sent. (This check used to live only in PRISM Studio.)
+- **PRISM validator updated** to 1.26.1.
 
 ## 0.6.2
 

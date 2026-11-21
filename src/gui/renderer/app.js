@@ -1363,7 +1363,33 @@ elements.publishProjectButton.addEventListener('click', async () => {
   }
 
   const remoteName = remoteNameForProject(state.projectHealthSnapshot, projectPath) ?? undefined
+  let prepNote = null
+  if (remoteName) {
+    // Nested subjects get their own folder on the server first. Trouble here never blocks the send itself.
+    setButtonBusy(elements.publishProjectButton, true, 'Checking the server folders…')
+    try {
+      const prep = await api.prepareSubjectRemotes(projectPath, remoteName, favorites.map((f) => f.address))
+      const made = prep?.created?.length ?? 0
+      const madeText = `Created ${made} subject ${made === 1 ? 'folder' : 'folders'} on the server.`
+      if (prep?.failed) {
+        prepNote = { text: `Could not check the server folders for your subjects: ${prep.failed}`, tone: 'warning' }
+      } else if (prep?.refused?.length > 0) {
+        const [first, ...more] = prep.refused
+        const who = more.length > 0 ? `${first.name}, and ${more.length} more` : first.name
+        const failText = `Could not set up ${who}: ${first.reason}.`
+        prepNote = { text: made > 0 ? `${madeText} ${failText}` : `${failText} Sending your saves carried on without it.`, tone: 'warning' }
+      } else if (made > 0) {
+        prepNote = { text: madeText, tone: 'success' }
+      }
+    } catch {
+      // The send goes ahead; the server folders can be set up on the next try.
+    } finally {
+      setButtonBusy(elements.publishProjectButton, false)
+    }
+  }
   const result = await runWorkflowCommand('push', { projectPath, remoteName }, elements.publishProjectButton)
+  // A failed send keeps its own error line; the server-folder note would hide it.
+  if (prepNote && result?.ok === true) setLastActionState(prepNote.text, prepNote.tone)
   if (isSourceRefusal('push', result)) {
     // Learn from the refusal (wording only): a network problem or a stop never gets here.
     try {

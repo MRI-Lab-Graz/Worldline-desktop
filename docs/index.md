@@ -41,6 +41,7 @@ tutorials/06-publication-freeze-release
 :caption: Product & Architecture
 
 product/researcher-workflow
+server-setup
 roadmap
 architecture/datalad-adapter
 architecture/datalad-adapter-interface

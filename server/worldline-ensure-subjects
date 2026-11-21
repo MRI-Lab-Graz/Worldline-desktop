@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# worldline-ensure-subjects <project-absolute-path> <subject>...
+# The only command Worldline Desktop runs over SSH to make subject folders.
+# Additive only: never overwrites, never changes permissions (server policy).
+# stdout, one line per subject: created NAME | exists NAME | refused NAME <reason>
+# exit 0 all created/exists, 1 any refused, 2 bad call (prints "error <reason>").
+set -eu
+export LC_ALL=C
+
+root_in=${WORLDLINE_ROOT:-/datalad/mri/MRI-Lab_Repository}
+
+bad() { echo "error $1"; exit 2; }
+# Names come from an untrusted client: keep echoed text on one safe line.
+safe() { printf '%s' "$1" | tr -c 'A-Za-z0-9+._/-' '?'; }
+
+[ "$#" -ge 2 ] || bad "usage: project and at least one subject needed"
+project=$1; shift
+case $project in /*) ;; *) bad "project path must be absolute" ;; esac
+root=$(cd -P -- "$root_in" 2>/dev/null && pwd -P) || bad "server root not found"
+real=$(cd -P -- "$project" 2>/dev/null && pwd -P) || bad "project not found"
+[ "$real" = "$project" ] || bad "project path must be the real path (no symlinks)"
+[ "$(dirname -- "$real")" = "$root" ] || bad "project is not directly inside the server root"
+[ -e "$real/.git" ] || bad "project is not a dataset"
+
+target=""; mine=0
+cleanup() { # only ever removes the folder this very run created
+  if [ "$mine" = 1 ] && [ -n "$target" ]; then rm -r -- "$target" || true; fi
+  mine=0
+}
+trap 'cleanup; exit 130' HUP INT TERM
+
+setup() {
+  git -C "$target" init -q &&
+  git -C "$target" annex init -q "Worldline Desktop" &&
+  git -C "$target" config receive.denyCurrentBranch updateInstead
+}
+
+rc=0
+for name in "$@"; do
+  shown=$(safe "$name")
+  [ -n "$shown" ] || shown="(empty)"
+  if ! [[ $name =~ ^sub-[A-Za-z0-9][A-Za-z0-9+._-]{0,62}$ ]]; then
+    echo "refused $shown name not allowed"; rc=1; continue
+  fi
+  target=$real/$name
+  if [ -e "$target" ] || [ -L "$target" ]; then
+    if [ -d "$target" ] && [ ! -L "$target" ] && [ -e "$target/.git" ]; then
+      echo "exists $shown"
+    else
+      echo "refused $shown exists but is not a dataset"; rc=1
+    fi
+    continue
+  fi
+  if ! mkdir -- "$target" 2>/dev/null; then
+    echo "refused $shown could not create folder"; rc=1; continue
+  fi
+  mine=1
+  if setup >/dev/null 2>&1; then
+    mine=0; echo "created $shown"
+  else
+    cleanup; echo "refused $shown setup failed"; rc=1
+  fi
+done
+exit "$rc"

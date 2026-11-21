@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld('worldlineDesktop', {
   clearRepositoryLock: (projectPath) => ipcRenderer.invoke('adapter:clearRepositoryLock', projectPath),
   prepareFolderRemote: (projectPath, remoteName, folderPath) =>
     ipcRenderer.invoke('adapter:prepareFolderRemote', { projectPath, remoteName, folderPath }),
+  prepareSubjectRemotes: (projectPath, remoteName, favorites) =>
+    ipcRenderer.invoke('adapter:prepareSubjectRemotes', { projectPath, remoteName, favorites }),
   trackRemote: (projectPath, remoteName) => ipcRenderer.invoke('adapter:trackRemote', { projectPath, remoteName }),
   setSourceAccepts: (projectPath, value) => ipcRenderer.invoke('adapter:setSourceAccepts', { projectPath, value }),
   clearSourceAccepts: (projectPath) => ipcRenderer.invoke('adapter:clearSourceAccepts', projectPath),

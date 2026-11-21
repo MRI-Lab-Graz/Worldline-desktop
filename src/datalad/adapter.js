@@ -3,6 +3,8 @@ import { lstat, mkdir, open, readdir, readFile, realpath, rm, writeFile } from '
 import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import { formatEnvironmentDiagnostics } from './diagnostics.js'
 import { mapCommandError, MERGE_PREFLIGHT_ERRORS } from './errors.js'
+import { parseSshAddress } from '../gui/ssh-browse.js'
+import { underFavorite, wantedOrigin, ensureSshArgs, parseEnsureOutput, explainSshFailure, safeReason } from './subject-remotes.js'
 import { redactUrlCredentials } from './redact.js'
 import { ProcessRunner } from './process-runner.js'
 import { MAC_PRIVATE_BIN } from './resolve-tool.js'
@@ -590,6 +592,60 @@ export class DataLadAdapter {
       .map((line) => line.split('\u0000'))
       .filter(([name, tagger]) => tagger === `<${email}>` && isSafeName(name))
       .map(([name]) => name)
+  }
+
+  // Before Send: make sure each installed subject has its own folder on the server and its origin points there.
+  // Never throws for server trouble: that comes back as `failed` so the send itself can still go ahead.
+  async prepareSubjectRemotes(projectPath, { remoteName, favorites = [], runSsh } = {}) {
+    assertSafeRemoteName(remoteName)
+    const result = { created: [], exists: [], refused: [], pointed: [], kept: [] }
+    const origin = await this.#remoteUrl(projectPath, remoteName)
+    const parsed = origin && parseSshAddress(origin)
+    if (!parsed) return { ...result, skipped: 'no-ssh-origin' }
+    if (!underFavorite(parsed, favorites)) return { ...result, skipped: 'not-a-favorite' }
+    const todo = []
+    const kept = []
+    let any = false
+    for (const name of await this.#readSubdatasetPathsFromGitModules(projectPath)) {
+      const wanted = wantedOrigin(parsed, name)
+      const folder = join(projectPath, name)
+      // A committed symbolic link could point at another repository: only a real folder counts as installed.
+      const info = await lstat(folder).catch(() => null)
+      if (!wanted || !info?.isDirectory() || !(await fileExists(join(folder, '.git')))) continue
+      any = true
+      const current = await this.#remoteUrl(folder, 'origin')
+      if (current === wanted) continue
+      if (current !== null && !isDriftedOrigin(current, parsed)) kept.push(name)
+      else todo.push({ name, folder, wanted, hadOrigin: current !== null })
+    }
+    result.kept = kept
+    if (!any) return { ...result, skipped: 'no-subjects' }
+    if (todo.length === 0) return result
+    let ssh
+    try {
+      ssh = await runSsh(ensureSshArgs(parsed, todo.map((t) => t.name)))
+    } catch (error) {
+      return { ...result, failed: explainSshFailure({ missing: error?.code === 'ENOENT' }) }
+    }
+    const parsedOut = parseEnsureOutput(ssh?.stdout)
+    const requested = new Set(todo.map((t) => t.name))
+    const heard = parsedOut.created.length + parsedOut.exists.length + parsedOut.refused.length
+    if (ssh?.timedOut || (ssh?.code !== 0 && heard === 0)) return { ...result, failed: explainSshFailure(ssh ?? {}) }
+    result.created = parsedOut.created.filter((n) => requested.has(n))
+    result.exists = parsedOut.exists.filter((n) => requested.has(n))
+    result.refused = parsedOut.refused.filter((r) => requested.has(r.name)).map((r) => ({ name: r.name, reason: safeReason(r.reason) }))
+    const ready = new Set([...result.created, ...result.exists])
+    for (const t of todo.filter((x) => ready.has(x.name))) {
+      const args = ['-C', t.folder, 'remote', t.hadOrigin ? 'set-url' : 'add', 'origin', t.wanted]
+      if (!(await this.runner.run('git', args)).failed) result.pointed.push(t.name)
+    }
+    return result
+  }
+
+  async #remoteUrl(folder, remote) {
+    const got = await this.runner.run('git', ['-C', folder, 'remote', 'get-url', remote])
+    const url = got.stdout?.trim()
+    return got.failed || !url ? null : url
   }
 
   // Checked before a folder is written to, so a bad or taken name never leaves a half-made copy behind.
@@ -2038,6 +2094,17 @@ async function gitignoreExists(path) {
     }
     throw error
   }
+}
+
+// Origins the app may repoint: relative ones (./sub-134001) and ssh:// ones on the project's own server in the
+// project's own folder (a renamed subject). Everything else was set on purpose and is kept.
+function isDriftedOrigin(url, project) {
+  const parsed = parseSshAddress(url)
+  if (parsed) {
+    const parent = (path) => path.slice(0, path.lastIndexOf('/')) || '/'
+    return parsed.host.toLowerCase() === project.host.toLowerCase() && parent(parsed.path) === project.path
+  }
+  return !/[:]/.test(url) && !/^[/\\]/.test(url)
 }
 
 async function fileExists(path) {

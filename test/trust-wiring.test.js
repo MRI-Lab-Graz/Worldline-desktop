@@ -98,7 +98,7 @@ test('createProject into an empty target ignores force, so a folder filled in be
 test('every IPC handler is classified', () => {
   const handlers = [...main.matchAll(/handle\('([^']+)'/g)].map((m) => m[1])
   const guarded = ['adapter:ensureBidsMarker', 'adapter:findUnnestedBidsCandidates', 'adapter:untrackPath', 'adapter:linkSubdatasetSource', 'adapter:resolveConflict', 'prism:inspect', 'prism:check', 'adapter:listDatasets', 'adapter:ignoreOsNoiseFiles', 'adapter:readGitignore', 'adapter:addIgnorePatterns', 'adapter:listBranches', 'adapter:getLastCommit', 'adapter:getWorkingTreeStatus', 'adapter:listRecentCommits', 'adapter:getCommitDetails', 'adapter:getFileDiff', 'adapter:listChangesSince', 'adapter:listDataFiles', 'adapter:getProjectHealth', 'adapter:clearRepositoryLock', 'adapter:listOwnTags', 'watch:setActiveProject', 'fs:listEntries', 'fs:revealPath', 'adapter:trackRemote', 'adapter:setSourceAccepts', 'adapter:clearSourceAccepts', 'adapter:getDeletionPreview', 'adapter:deleteProject']
-  const gated = ['adapter:detectProject', 'dialog:pickDirectory', 'adapter:runCommand']
+  const gated = ['adapter:detectProject', 'dialog:pickDirectory', 'adapter:runCommand', 'adapter:prepareSubjectRemotes']
   const noFolder = ['adapter:checkEnvironment', 'adapter:cancelCommand', 'env:status', 'app:version', 'env:ensure', 'app:capabilities', 'identity:get', 'identity:set', 'app:getWorkspaceRoot', 'updates:status', 'updates:validator-now', 'updates:skip', 'ssh:listFolders']
   const readOnlyException = ['adapter:inspectBidsCandidate'] // lists marker names in a typed folder before it is authorized; runs no git
   const newEmptyFolder = ['adapter:prepareFolderRemote'] // writes only into an empty folder, confirmed unless picked (own test below)
@@ -106,7 +106,7 @@ test('every IPC handler is classified', () => {
   for (const name of guarded) {
     assert.match(block(`handle('${name}'`), /requireAuthorizedRoot\(|isWithinAuthorizedRoot\(/, `${name} does not check the authorized roots`)
   }
-  for (const name of ['adapter:detectProject', 'dialog:pickDirectory', 'adapter:runCommand']) {
+  for (const name of ['adapter:detectProject', 'dialog:pickDirectory', 'adapter:runCommand', 'adapter:prepareSubjectRemotes']) {
     assert.match(block(`handle('${name}'`), /trustGate\(\)/, `${name} does not use the gate`)
   }
 })
@@ -198,4 +198,14 @@ test('resolving a conflict is only for an authorized project root', () => {
   const body = block("handle('adapter:resolveConflict'")
   assert.match(body, /requireAuthorizedRoot\(payload\.projectPath\)/)
   assert.match(body, /adapter\.resolveConflict\(/)
+})
+
+test('setting up subject folders on the server (it writes to a remote) is authorized and trusted before the adapter runs', () => {
+  const body = block("handle('adapter:prepareSubjectRemotes'")
+  const root = body.indexOf('requireAuthorizedRoot(payload.projectPath)')
+  const gate = body.indexOf('await trustGate().require(payload.projectPath, { event })')
+  const call = body.indexOf('adapter.prepareSubjectRemotes(')
+  assert.ok(root !== -1 && root < gate && gate < call, 'authorized root, then trust gate, then the adapter')
+  assert.match(body, /Array\.isArray\(payload\.favorites\)[\s\S]*?\.length <= 500[\s\S]*?slice\(0, 50\)/)
+  assert.match(body, /runSsh/)
 })

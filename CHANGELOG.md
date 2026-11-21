@@ -2,10 +2,6 @@
 
 Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2.
 
-## Unreleased
-
-- **Raw data stays off public hosts.** Send my saves now refuses to send a project that tracks `sourcedata/` to GitHub, GitLab, GIN, Bitbucket, Codeberg, OpenNeuro or any web address, and says why. The internal lab server and local folders are unaffected. (This check used to live only in PRISM Studio.)
-
 ## 0.6.2
 
 - **Windows install script fixed.** The 0.6.1 script could stop while unpacking the app ("Cannot find an overload for ExtractToDirectory") on Windows PowerShell with a newer archive module. It now unpacks with the plain .NET call, which works the same everywhere. The app itself is unchanged from 0.6.1. If the 0.6.1 script failed for you, run the new `windows-install.cmd` again.

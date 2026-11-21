@@ -1,5 +1,7 @@
 // A project that tracks sourcedata/ (raw, possibly identifiable data in plain git) must only go to the internal lab
 // server, never to a public host. Same rule as PRISM Studio had in share_publish.py; this is its one home now.
+import { SAFE_NAME_PATTERN } from './adapter.js'
+
 const PUBLIC_HOSTS = ['github.com', 'gitlab.com', 'gin.g-node.org', 'bitbucket.org', 'codeberg.org', 'openneuro.org']
 
 const hostOf = (url) => {
@@ -22,6 +24,10 @@ const couldNotCheck = (detail) => `Could not check where this project is sent ($
 
 // Returns why the push must not happen, or null when it may. Fails closed: a git error refuses.
 export async function pushRefusal({ runner, projectPath, remoteName }) {
+  // Not yet validated by the adapter (it runs after this): a name must never reach git as an option.
+  if (remoteName !== undefined && !(typeof remoteName === 'string' && SAFE_NAME_PATTERN.test(remoteName))) {
+    return couldNotCheck('invalid remote name')
+  }
   const git = (...args) => runner.run('git', ['-C', projectPath, ...args])
   const tracked = await git('ls-files', '--', 'sourcedata')
   if (tracked.exitCode !== 0) return couldNotCheck(tracked.stderr || `exit ${tracked.exitCode}`)

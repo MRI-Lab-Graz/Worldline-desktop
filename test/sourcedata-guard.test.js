@@ -68,6 +68,14 @@ test('pushRefusal: a remote name that git cannot resolve fails closed', async ()
   assert.match(await pushRefusal({ runner: r, projectPath: '/p', remoteName: 'nope' }), /Could not check/)
 })
 
+test('pushRefusal: a remote name that could be read as a git option or is not a string is refused before git runs', async () => {
+  for (const remoteName of ['--upload-pack=x', '-x', ['origin'], 5, '']) {
+    const r = runner({ tracked: 'sourcedata/a.csv\n', remotes: { origin: 'ssh://user@lab-server.uni.at/d' } })
+    assert.match(await pushRefusal({ runner: r, projectPath: '/p', remoteName }), /Could not check/, String(remoteName))
+    assert.equal(r.calls.length, 0)
+  }
+})
+
 // Wiring: main.js asks the guard before any push command runs and returns the refusal as a failed, unrun result.
 import { readFileSync } from 'node:fs'
 const main = readFileSync(new URL('../src/gui/main.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n')

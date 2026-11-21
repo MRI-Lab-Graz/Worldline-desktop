@@ -26,3 +26,29 @@ test('SECURITY.md names the new SSH command and says the server script is the au
   assert.match(md, /additive/i)
   assert.match(md, /BatchMode/)
 })
+
+const KEY = 'The lab server is not set up for this yet'
+
+test('the missing-script wording is the same in the app, the workflow doc, the server doc and SECURITY.md', () => {
+  for (const f of ['src/datalad/subject-remotes.js', 'docs/product/researcher-workflow.md', 'docs/server-setup.md', 'SECURITY.md']) {
+    assert.ok(rd(f).includes(KEY), `${f} misses the shared sentence`)
+  }
+})
+
+test('the sticky-bit text says who may delete and that contents are not protected', () => {
+  const md = rd('docs/server-setup.md')
+  assert.match(md, /owner of the repository folder/)
+  assert.match(md, /NOT their contents|not their contents/i)
+  assert.match(md, /directly on the server/)
+  assert.match(md, /every repository on the server/)
+  assert.match(md, /command -v git/)
+  assert.match(md, /PermitUserEnvironment/)
+})
+
+test('the docs index lists the server setup page', () => {
+  assert.match(rd('docs/index.md'), /server-setup/)
+})
+
+test('the workflow doc says the subject remote is pointed at the new folder', () => {
+  assert.match(rd('docs/product/researcher-workflow.md'), /points the subject's remote/)
+})

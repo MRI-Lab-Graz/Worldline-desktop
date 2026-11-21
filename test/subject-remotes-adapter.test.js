@@ -204,3 +204,14 @@ test('a missing ssh program gets its own plain sentence', async () => {
   assert.match(out.failed, /no ssh program/)
   assert.doesNotMatch(out.failed, /know that server/)
 })
+
+test('a missing script (ssh exit 127) says the server is not set up, without raw stderr, and changes nothing', async () => {
+  const root = await project(['sub-01'])
+  const runner = new Runner({ [root]: ORIGIN })
+  const out = await prep(root, runner, async () => ({ code: 127, stdout: '', stderr: 'bash: worldline-ensure-subjects: command not found', timedOut: false }))
+  assert.match(out.failed, /The lab server is not set up for this yet/)
+  assert.match(out.failed, /worldline-ensure-subjects/)
+  assert.match(out.failed, /docs\/server-setup\.md/)
+  assert.doesNotMatch(out.failed, /bash|command not found/)
+  assert.deepEqual(runner.changes(), [])
+})

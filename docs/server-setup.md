@@ -24,7 +24,7 @@ The script only **adds**:
 sudo install -m 0755 -o root -g root server/worldline-ensure-subjects /usr/local/bin/worldline-ensure-subjects
 ```
 
-If the repository folder is not `/datalad/mri/MRI-Lab_Repository`, set `WORLDLINE_ROOT` for the script (for example in the environment of non-interactive logins) to the right folder.
+If the repository folder is not `/datalad/mri/MRI-Lab_Repository`, change the root. sshd does not read login profiles and the app cannot pass a variable, so the simple way is to edit the installed script: in `/usr/local/bin/worldline-ensure-subjects` change the default in the line `root_in=${WORLDLINE_ROOT:-/datalad/mri/MRI-Lab_Repository}` (re-apply after reinstalling). Alternatively set `WORLDLINE_ROOT` per account with `PermitUserEnvironment yes` in `sshd_config` and `~/.ssh/environment`.
 
 Check it from a computer, the way the app logs in (no terminal, no profile):
 
@@ -44,11 +44,13 @@ sudo git config --system receive.denyDeletes true
 sudo git config --system receive.denyNonFastForwards true
 ```
 
-- **`chmod +t` (sticky bit):** in that folder only the owner of a project folder (or root) can delete or rename it. Verify: `ls -ld /datalad/mri/MRI-Lab_Repository` shows a `t` at the end of the permissions (for example `drwxrwsr-t`).
+- **`chmod +t` (sticky bit):** in that folder only the owner of a project folder, the owner of the repository folder itself (today the account `koschutn`) or root can delete or rename a project folder. Verify: `ls -ld /datalad/mri/MRI-Lab_Repository` shows a `t` at the end of the permissions (for example `drwxrwsr-t`). This protects the project folders themselves, NOT their contents: subject folders and files inside a project stay governed by the project folder's own permissions (`rwxrwx---`, group `domain users` today), so group members can still delete files directly on the server.
 - **`receive.denyDeletes`:** a push cannot delete a branch or tag.
-- **`receive.denyNonFastForwards`:** a push cannot overwrite history that is already on the server.
+- **`receive.denyNonFastForwards`:** a push cannot overwrite history that is already on the server. It affects every repository on the server, so a colleague's legitimate non-fast-forward push will now be refused.
 
-Verify the two git settings: `git config --system --get-regexp '^receive\.deny'` lists both as `true`. They apply to every repository on the server that does not set them differently itself.
+These two settings only stop deleting branches and rewriting history through git pushes, not file deletes done directly on the server.
+
+`git config --system` writes the `/etc/gitconfig` of the git that `sudo` finds. Use the same git that `ssh <server> 'command -v git'` prints (for example `sudo /usr/bin/git config --system ...`). Verify: `git config --system --get-regexp '^receive\.deny'` lists both as `true`.
 
 ## 4. Who sees what
 
@@ -60,6 +62,6 @@ You can restrict the SSH logins of non-administrators so only `git`, `git-annex`
 
 ## 6. How you know it works
 
-In Worldline Desktop, rename a subject (or add a new one) in a project whose remote is on the lab server and lies under a saved Connection Favorite. Press **Send my saves**. After the push the app lists the subjects it set up on the server. If the script is not installed, the app says so in plain words and the push still runs.
+In Worldline Desktop, rename a subject (or add a new one) in a project whose remote is on the lab server and lies under a saved Connection Favorite. Press **Send my saves**. After the push the app lists the subjects it set up on the server. If the script is not installed, the app shows "The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects (see docs/server-setup.md). Your saves are still sent." and the push still runs.
 
 Back to the [researcher workflow](product/researcher-workflow.md).

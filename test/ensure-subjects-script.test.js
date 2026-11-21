@@ -49,10 +49,12 @@ test('second run reports exists and changes nothing', { skip }, () => {
   s.run(s.project, 'sub-001')
   const dir = path.join(s.project, 'sub-001')
   const before = fs.readFileSync(path.join(dir, '.git', 'config'), 'utf8')
+  const head = fs.readFileSync(path.join(dir, '.git', 'HEAD'), 'utf8')
   const r = s.run(s.project, 'sub-001')
   assert.deepStrictEqual(r.out, ['exists sub-001'])
   assert.strictEqual(r.code, 0)
   assert.strictEqual(fs.readFileSync(path.join(dir, '.git', 'config'), 'utf8'), before)
+  assert.strictEqual(fs.readFileSync(path.join(dir, '.git', 'HEAD'), 'utf8'), head)
 })
 
 test('a non-dataset folder, a file and a symlink are refused and untouched', { skip }, () => {
@@ -72,11 +74,12 @@ test('a non-dataset folder, a file and a symlink are refused and untouched', { s
 
 test('hostile names are refused and create nothing', { skip }, () => {
   const s = setup()
-  const bad = ['../evil', 'sub-../x', 'sub-a/b', '-rf', '--help', 'sub-', 'sub-$(touch pwned)', 'sub-a;b', 'sub- a', 'sub-.x', 'sub-' + 'a'.repeat(64), 'Sub-001', 'x', '.']
+  const bad = ['../evil', 'sub-../x', 'sub-a/b', '-rf', '--help', 'sub-', 'sub-$(touch pwned)', 'sub-a;b', 'sub- a', 'sub-.x', 'sub-' + 'a'.repeat(64), 'Sub-001', 'x', '.', 'sub-1\ncreated sub-evil', 'sub-2\n', '', 'created sub-x']
   const r = s.run(s.project, ...bad)
   assert.strictEqual(r.code, 1)
   assert.strictEqual(r.out.length, bad.length)
   for (const l of r.out) assert.match(l, /^refused /)
+  assert.ok(r.out.includes('refused (empty) name not allowed'))
   assert.deepStrictEqual(fs.readdirSync(s.project).sort(), ['.git'])
   assert.deepStrictEqual(fs.readdirSync(s.root), ['proj'])
   assert.ok(!fs.existsSync('pwned'))
@@ -112,13 +115,16 @@ test('a failed setup removes only the folder this run made', { skip }, () => {
     if (c !== 'git') fs.symlinkSync(real, path.join(env.PATH, c))
   }
   // git shim that fails on `annex`
-  fs.writeFileSync(path.join(env.PATH, 'git'), '#!/bin/sh\n[ "$1" = annex ] && exit 1\nexec ' + spawnSync('bash', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim() + ' "$@"\n', { mode: 0o755 })
+  fs.writeFileSync(path.join(env.PATH, 'git'), '#!/bin/sh\ncase " $* " in *" annex "*) exit 1;; esac\nexec ' + spawnSync('bash', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim() + ' "$@"\n', { mode: 0o755 })
   fs.mkdirSync(path.join(s.project, 'sub-009'))
   const r = spawnSync('/bin/bash', [SCRIPT, s.project, 'sub-001', 'sub-009'], { env, encoding: 'utf8' })
   assert.strictEqual(r.status, 1)
   assert.match(r.stdout, /^refused sub-001 /m)
   assert.ok(!fs.existsSync(path.join(s.project, 'sub-001')), 'half-made folder removed')
   assert.ok(fs.existsSync(path.join(s.project, 'sub-009')), 'pre-existing folder kept')
+  assert.match(r.stdout, /^refused sub-001 setup failed$/m)
+  const again = s.run(s.project, 'sub-001')
+  assert.deepStrictEqual(again.out, ['created sub-001'])
 })
 
 test('script has no force/recursive-delete shortcuts and one guarded rm', () => {

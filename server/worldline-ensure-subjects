@@ -27,6 +27,7 @@ cleanup() { # only ever removes the folder this very run created
   if [ "$mine" = 1 ] && [ -n "$target" ]; then rm -r -- "$target" || true; fi
   mine=0
 }
+trap 'cleanup; exit 130' HUP INT TERM
 
 setup() {
   git -C "$target" init -q &&
@@ -37,6 +38,7 @@ setup() {
 rc=0
 for name in "$@"; do
   shown=$(safe "$name")
+  [ -n "$shown" ] || shown="(empty)"
   if ! [[ $name =~ ^sub-[A-Za-z0-9][A-Za-z0-9+._-]{0,62}$ ]]; then
     echo "refused $shown name not allowed"; rc=1; continue
   fi

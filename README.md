@@ -47,6 +47,7 @@ across nested sub-projects? The app shows you exactly what changed and where.
   against its checksum.
 - **See how a result was made** — commits recorded with `datalad run` show their
   command, inputs and outputs in Tools → History.
+- **Raw data stays private** — a project that tracks `sourcedata/` is never sent to a public host (GitHub, GitLab, GIN, ...); only your internal server.
 - **Keep a second copy** — add a USB drive, network share or an empty GIN/GitHub/
   GitLab repository as a remote in one step.
 - **Branch when you need to**, without it getting in the way when you don't —

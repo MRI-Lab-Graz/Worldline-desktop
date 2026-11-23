@@ -20,6 +20,7 @@ import { guardedHandler } from './ipc-guard.js'
 import { findExecVectors, findRemoteVectors, localPath, localRemotePaths } from './folder-trust.js'
 import { createTrustStore } from './trust-store.js'
 import { createTrustGate, describeTrustPrompt, folderState, isEmptyOrMissing } from './trust-gate.js'
+import { launchProjectPath } from './launch-path.js'
 import { createLatestLineThrottle, createRunRegistry } from './run-registry.js'
 import { createAppUpdateChecks, createBusyCounter, runUnlessBusy } from './update-runner.js'
 import { parseVersion, repairEnvDir } from '../datalad/validator-update.js'
@@ -856,6 +857,26 @@ async function resolveDialogDefaultPath(requestedPath) {
     return fallbackPath
   }
 }
+
+// One window: a second start (`worldline /path/to/project`) hands its path to the running app.
+let pendingLaunchPath = launchProjectPath(process.argv)
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+}
+app.on('second-instance', (_event, argv) => {
+  const path = launchProjectPath(argv)
+  const [win] = BrowserWindow.getAllWindows()
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.focus()
+    if (path) win.webContents.send('launch:open', path)
+  }
+})
+handle('launch:takePending', async () => {
+  const path = pendingLaunchPath
+  pendingLaunchPath = null
+  return path
+})
 
 app.whenReady().then(async () => {
   app.setName(APP_NAME)

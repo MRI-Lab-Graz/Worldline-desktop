@@ -72,6 +72,8 @@ folder trust question, PRISM projects, running from source, network shares — i
 
 The app tells you when DataLad or git-annex have a newer version (it never installs those). If you installed the PRISM validator, the app also keeps it up to date in the background, using only releases that are at least 3 days old. Administrators can turn all of this off, see [SECURITY.md](SECURITY.md).
 
+`worldline /path/to/project` opens that project (the trust prompt still applies); a second start hands the path to the running window.
+
 ## Documentation
 
 **[worldline-desktop.readthedocs.io](https://worldline-desktop.readthedocs.io/)** has the tutorials, researcher

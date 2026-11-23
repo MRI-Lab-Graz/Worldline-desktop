@@ -5421,3 +5421,8 @@ elements.createFavorite.addEventListener('change', () => {
 })
 
 renderFavorites()
+
+// `worldline /path/to/project`: opens like a click in "Latest Projects", so the trust prompt still decides.
+const openLaunchPath = (path) => typeof path === 'string' && path && openRecentProject(path)
+api.onLaunchPath(openLaunchPath)
+openLaunchPath(await api.takeLaunchPath())

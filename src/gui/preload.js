@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('worldlineDesktop', {
   platform: process.platform,
+  takeLaunchPath: () => ipcRenderer.invoke('launch:takePending'),
+  onLaunchPath: (callback) => ipcRenderer.on('launch:open', (_event, path) => callback(path)),
   checkEnvironment: () => ipcRenderer.invoke('adapter:checkEnvironment'),
   detectProject: (projectPath) => ipcRenderer.invoke('adapter:detectProject', projectPath),
   inspectBidsCandidate: (folderPath) => ipcRenderer.invoke('adapter:inspectBidsCandidate', folderPath),

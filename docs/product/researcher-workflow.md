@@ -36,6 +36,32 @@ Large projects do not have to be downloaded as a whole. In the **Files** tab, op
 
 Known limitation: subject folders that are not set up on this computer yet (a project copied without its sub-datasets) do not appear in the panel, and the panel then cannot tell you they exist. To set them up, either create the project again with **Based on a remote dataset** (this installs the sub-datasets too), or run `datalad get -n -r .` in a terminal inside the project folder (it installs the sub-datasets without downloading any file content). Then press Refresh Files.
 
+## Sending renamed or new subjects
+
+When you renamed a subject folder or added a new one, the lab server does not have a place for it yet. **Send my saves** takes care of this for you, when the project's remote lies on a server you saved as a **Connection Favorite**:
+
+1. The app checks the project is trusted, as for every send.
+2. It asks the server to create the missing subject folders (one login, with your SSH key, no password typed into the app).
+3. It points the subject's remote at its new server folder, so later saves go there.
+4. It sends your saves and the data. Afterwards it tells you in plain words which subjects it set up.
+
+**Nothing is ever deleted on the server.** Only missing folders are added; a folder or subject that already exists is left as it is. A subject that already points to a place somewhere else keeps pointing there.
+
+The lab server needs a **one-time setup by its administrator** ([server setup](../server-setup.md)). If it is not done yet, the app shows "The lab server is not set up for this yet. Ask its administrator to install worldline-ensure-subjects. Sending your saves carried on without it." and **Send my saves** still sends everything it can. Ask your administrator to follow that page, then press **Send my saves** again.
+
+This is also the step that follows "Add PRISM data to a downloaded BIDS project" below, when your PRISM subjects are new folders.
+
+## Add PRISM data to a downloaded BIDS project
+
+You have the imaging data on a server and your survey or physio data (PRISM) on your own computer. To bring them together in one project:
+
+1. **Download the project.** Use **Create project → Based on a remote dataset**. This also sets up the subject folders that are their own sub-datasets.
+2. **Use the same subject IDs.** The PRISM folders must carry the same subject IDs as the imaging folders (for example `sub-001` becomes `sub-134001`). Otherwise they are treated as different people. The app cannot guess the match, so rename the folders yourself and keep a note of which ID became which.
+3. **Copy all the PRISM data into the project folder.** Files go into the matching subject folders on their own. When your computer asks about `dataset_description.json`, `participants.tsv` or `participants.json`, choose **keep both** or **skip**, so the project's own files are not replaced. Add the PRISM rows and fields to them by hand afterwards, and copy `project.json` in.
+4. **Save.** One Save records the new files inside each subject folder and in the project; nothing is left over.
+
+Subject folders with no match in the downloaded project are new folders. They stay part of the main project until you turn each one into its own sub-dataset with **Convert to subdataset** in Files. Your saves stay on this computer until you send them with **Send my saves** (see [Sending renamed or new subjects](#sending-renamed-or-new-subjects)).
+
 ## DataLad action surface in MVP
 
 For DataLad-enabled projects, the compact action group should include:

@@ -7,6 +7,7 @@ import { getGitIdentity, setGitIdentity } from '../datalad/git-identity.js'
 import { createEnsureGuard, describeEnvFailure, ensureEnv, envBin, envStatus, resolveUv } from '../datalad/managed-env.js'
 import { checkProject, gateSave, inspectProject } from '../datalad/prism-gate.js'
 import { ProcessRunner } from '../datalad/process-runner.js'
+import { pushRefusal } from '../datalad/sourcedata-guard.js'
 import { assertCommandRequest } from '../datalad/schema.js'
 import { createResultCounter } from '../datalad/result-counter.js'
 import { createProjectWatcher } from './fs-watch.js'
@@ -23,7 +24,7 @@ import { createLatestLineThrottle, createRunRegistry } from './run-registry.js'
 import { createAppUpdateChecks, createBusyCounter, runUnlessBusy } from './update-runner.js'
 import { parseVersion, repairEnvDir } from '../datalad/validator-update.js'
 import { skipNotice } from '../datalad/tool-notices.js'
-import { listSshFolders } from './ssh-browse.js'
+import { listSshFolders, runSsh } from './ssh-browse.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -430,6 +431,23 @@ handle('adapter:runCommand', async (event, payload) => {
     }
   }
 
+  if (PUSHES.has(payload.commandName)) {
+    // Raw data in sourcedata/ goes to the internal lab server only: checked here, before anything is sent.
+    const refusal = await pushRefusal({ runner: toolRunner, projectPath: request.projectPath, remoteName: request.remoteName })
+    if (refusal) {
+      return {
+        ok: false,
+        commandName: payload.commandName,
+        exitCode: 1,
+        stdout: '',
+        stderr: '',
+        failed: true,
+        warnings: [],
+        userError: { code: 'SOURCEDATA_PUBLIC_TARGET', title: 'Not sent', message: refusal, technicalDetails: '' }
+      }
+    }
+  }
+
   const result = await runWithHandle(event, payload.runId, async (runOptions) => {
     await recheckTrust()
     return adapter.runCommand(payload.commandName, request, runOptions)
@@ -683,6 +701,16 @@ handle('adapter:prepareFolderRemote', async (event, payload = {}) => {
   // Publish re-checks a local remote's trust; this one the app made itself, empty.
   trustGate().createdByApp(folderPath)
   return result
+})
+
+// Send creates the nested subjects' folders on the server first. It writes to a remote, so the trust gate comes first.
+handle('adapter:prepareSubjectRemotes', async (event, payload = {}) => {
+  requireAuthorizedRoot(payload.projectPath)
+  await trustGate().require(payload.projectPath, { event })
+  const favorites = (Array.isArray(payload.favorites) ? payload.favorites : [])
+    .filter((f) => typeof f === 'string' && f.length <= 500)
+    .slice(0, 50)
+  return adapter.prepareSubjectRemotes(payload.projectPath, { remoteName: payload.remoteName, favorites, runSsh })
 })
 
 handle('adapter:trackRemote', async (_event, payload = {}) => {

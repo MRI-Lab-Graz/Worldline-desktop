@@ -69,7 +69,7 @@
 
 **Interfaces:**
 - Produces:
-  - `parseServerOrigin(url: string): { host: string, path: string } | null` (reuses `parseSshAddress` from `src/gui/ssh-browse.js`; accepts `ssh://host/abs/path`, rejects everything else);
+  - `parseSshAddress(url: string): { host: string, path: string } | null` (reuses `parseSshAddress` from `src/gui/ssh-browse.js`; accepts `ssh://host/abs/path`, rejects everything else);
   - `underFavorite(origin: {host, path}, favorites: string[]): boolean` (a favorite is an ssh address; true when host matches and the origin path is the favorite path or below it);
   - `wantedOrigin(projectOrigin: {host, path}, subject: string): string | null` (`ssh://host/path/subject`, null if the name fails the subject regex);
   - `ensureSshArgs(origin: {host, path}, subjects: string[]): string[]` (the full ssh argv: `['-o','BatchMode=yes','-o','ConnectTimeout=30','--', host, "worldline-ensure-subjects '<path>' '<s1>' …"]`, throws on an invalid name or path);

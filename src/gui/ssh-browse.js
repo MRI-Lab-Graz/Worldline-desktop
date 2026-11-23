@@ -7,8 +7,8 @@ import { execFile } from 'node:child_process'
 const HOST = /^(?:[A-Za-z0-9][A-Za-z0-9._-]*@)?[A-Za-z0-9][A-Za-z0-9.-]*$/
 // Letters, marks (macOS stores umlauts as letter + mark) and digits of any language, plus a few safe symbols. No quotes,
 // shell characters, control, invisible or look-alike characters. Safe inside the single quotes of the remote command.
-const SEGMENT = /^[\p{L}\p{M}\p{N} ._+@=,:~()-]+$/u
-const isOpenableName = (name) => SEGMENT.test(name) && name !== '.' && name !== '..'
+export const SEGMENT = /^[\p{L}\p{M}\p{N} ._+@=,:~()-]+$/u
+export const isOpenableName = (name) => SEGMENT.test(name) && name !== '.' && name !== '..'
 const MAX_FOLDERS = 1000
 const MAX_OUTPUT_BYTES = 1024 * 1024
 const TIMEOUT_MS = 60_000 // a VPN that has been idle can need a while for the first connection; ssh itself gives up first (ConnectTimeout)
@@ -55,7 +55,7 @@ export function sshExecOptions(env = process.env) {
   return { timeout: TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES, windowsHide: true, env: { ...env, NoDefaultCurrentDirectoryInExePath: '1' } }
 }
 
-function runSsh(args) {
+export function runSsh(args) {
   return new Promise((resolve, reject) => {
     execFile('ssh', args, sshExecOptions(), (error, stdout, stderr) => {
       if (error?.code === 'ENOENT') return reject(error)

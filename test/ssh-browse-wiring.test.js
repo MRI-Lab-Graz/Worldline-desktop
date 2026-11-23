@@ -9,7 +9,7 @@ const app = read('../src/gui/renderer/app.js')
 const html = read('../src/gui/renderer/index.html')
 
 test('the main process lists server folders only through ssh-browse, read-only and with no folder of ours', () => {
-  assert.match(main, /import \{ listSshFolders \} from '\.\/ssh-browse\.js'/)
+  assert.match(main, /import \{ listSshFolders, runSsh \} from '\.\/ssh-browse\.js'/)
   assert.match(main, /handle\('ssh:listFolders', async \(_event, address\) => listSshFolders\(address\)\)/)
 })
 

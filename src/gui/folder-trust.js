@@ -196,8 +196,12 @@ async function listLocalRemotes(runner, repo) {
 
 const exists = (path) => lstat(path).then(() => true, () => false)
 
-// The local-path remotes of a project that exist right now (an unplugged drive has nothing that can run).
-export async function localRemotePaths(runner, repo) {
+// Nested subjects are pushed too (push -r), each to its own remote, so theirs count as well.
+const MAX_NESTED_DEPTH = 8
+
+// The local-path remotes of a project and of its installed nested subjects that exist right now (an unplugged
+// drive has nothing that can run). Anything that cannot be read with certainty refuses the push.
+export async function localRemotePaths(runner, repo, depth = 0) {
   const { failed, remotes } = await listLocalRemotes(runner, repo)
   if (failed) {
     throw new Error('Not pushed: a remote of this project has a URL the app cannot read safely.')
@@ -206,6 +210,20 @@ export async function localRemotePaths(runner, repo) {
   for (const remote of remotes) {
     if (await exists(remote.path)) {
       present.push(remote)
+    }
+  }
+  const { links, failed: linksFailed } = await gitlinks(runner, repo)
+  if (linksFailed || (links.length > 0 && depth >= MAX_NESTED_DEPTH)) {
+    throw new Error('Not pushed: the nested datasets of this project could not be checked.')
+  }
+  for (const link of links) {
+    if (!(await exists(join(link, '.git')))) {
+      continue // not installed here, so nothing is pushed from it
+    }
+    for (const remote of await localRemotePaths(runner, link, depth + 1)) {
+      if (!present.some((known) => known.path === remote.path)) {
+        present.push(remote)
+      }
     }
   }
   return present

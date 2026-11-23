@@ -30,8 +30,8 @@ jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
     --hash=sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d
     # via jsonschema
-prism-validator==1.20.0 \
-    --hash=sha256:b9e76250baa0cac23bda51907f56a074e922c5ee06603059564c4a056d5b250f
+prism-validator==1.26.1 \
+    --hash=sha256:b9256043c3172eabeb29f0e770bb987eaaa1ea4d793035a48a0f8974c3418e51
     # via -r /dev/fd/11
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \

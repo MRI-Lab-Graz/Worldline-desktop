@@ -32,3 +32,11 @@ test('choosing a favorite switches to the matching source type and only fills th
   assert.match(body, /dispatchEvent\(new Event\('input'/)
   assert.doesNotMatch(body, /runCommand|createProject\(/)
 })
+
+test('the Add-favorite row gives the name a narrow column, the address the wide one, and Add its own', () => {
+  const css = read('../src/gui/renderer/styles.css')
+  assert.match(html, /<div class="field-row favorites-form">/)
+  const rule = css.match(/\.favorites-form\s*\{([^}]*)\}/)
+  assert.ok(rule, '.favorites-form rule')
+  assert.match(rule[1], /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*3fr\)\s+auto/)
+})

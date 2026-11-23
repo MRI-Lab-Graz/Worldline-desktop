@@ -859,18 +859,29 @@ async function resolveDialogDefaultPath(requestedPath) {
 }
 
 // One window: a second start (`worldline /path/to/project`) hands its path to the running app.
-let pendingLaunchPath = launchProjectPath(process.argv)
+// In a dev run (`electron .`) argv[1] is the app folder, not a project.
+const launchArgs = (argv) => launchProjectPath(app.isPackaged ? argv : [argv[0], ...argv.slice(2)])
+let pendingLaunchPath = launchArgs(process.argv)
 if (!app.requestSingleInstanceLock()) {
-  app.quit()
+  app.exit(0) // the running instance gets our argv; this process must not touch the validator env or open a window
 }
-app.on('second-instance', (_event, argv) => {
-  const path = launchProjectPath(argv)
+
+// To the renderer when it is up; otherwise it asks for the path itself when it starts (`launch:takePending`).
+function deliverLaunchPath(path) {
+  if (!path) return
   const [win] = BrowserWindow.getAllWindows()
-  if (win) {
+  if (win && !win.webContents.isLoading()) {
     if (win.isMinimized()) win.restore()
     win.focus()
-    if (path) win.webContents.send('launch:open', path)
+    win.webContents.send('launch:open', path)
+  } else {
+    pendingLaunchPath = path
   }
+}
+app.on('second-instance', (_event, argv) => deliverLaunchPath(launchArgs(argv)))
+app.on('open-file', (event, path) => { // macOS: a folder dropped on the Dock icon or `open -a Worldline <path>`
+  event.preventDefault()
+  deliverLaunchPath(path)
 })
 handle('launch:takePending', async () => {
   const path = pendingLaunchPath

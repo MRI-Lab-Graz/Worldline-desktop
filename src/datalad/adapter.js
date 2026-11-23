@@ -94,7 +94,6 @@ const BIDS_MARKER_FILE = 'dataset_description.json'
 // Detection probes must answer promptly; a hung one falls back to the
 // .datalad/config marker instead of stalling project open. Kept below the e2e
 // driver's 60s openProject wait.
-const PROBE_TIMEOUT_MS = 45_000
 const BIDS_SUBJECT_DIR_PATTERN = /^sub-[A-Za-z0-9._-]+$/
 // Top-level BIDS folder names nested/detected alongside sub-* subject dirs.
 const BIDS_TOP_LEVEL_DIR_NAMES = ['rawdata', 'derivatives', 'sourcedata']
@@ -104,7 +103,6 @@ const BIDS_TOP_LEVEL_DIR_NAMES = ['rawdata', 'derivatives', 'sourcedata']
 const OS_NOISE_PATTERNS = ['.DS_Store', '._*', 'Thumbs.db', 'desktop.ini']
 // pip/pipx launchers embed the installing Python's path; these are the OS errors when it is gone.
 const BROKEN_LAUNCHER_PATTERN = /(fatal error in launcher|bad interpreter)/i
-const NO_DATASET_PATTERN = /(nodatasetfound|not a dataset|no dataset found|could not find dataset)/i
 const NO_COMMITS_PATTERN = /(does not have any commits yet|has no commits yet)/i
 
 // macOS: the python of the private environment macos-install.sh builds, when it exists.
@@ -172,43 +170,29 @@ export class DataLadAdapter {
   async detectProject(projectPath) {
     await this.#ensureGitProject(projectPath)
 
-    const hasDataladConfig = await fileExists(join(projectPath, '.datalad', 'config'))
-    const datasetProbe = await this.#probeDataLadDataset(projectPath)
+    // Decided from two files, no DataLad process: `datalad status`/`subdatasets` cost 0.2-0.4 s of Python start
+    // on every project open (more on Windows) and the app already fell back to these files anyway.
+    const isDataset = await fileExists(join(projectPath, '.datalad', 'config'))
     const { isBids, bidsReason } = await this.#probeBidsMarker(projectPath)
-
-    const isDataset =
-      datasetProbe.isDataset !== null ? datasetProbe.isDataset : hasDataladConfig
 
     if (!isDataset) {
       return {
         projectPath,
         classification: 'git',
-        reason:
-          datasetProbe.reason ??
-          (hasDataladConfig
-            ? 'DataLad metadata probe failed and no supported fallback confirmed dataset state.'
-            : 'DataLad probe did not detect a dataset.'),
+        reason: 'No .datalad/config found, so this is a plain Git project.',
         isBids,
         bidsReason
       }
     }
 
-    const subdatasetProbe = await this.#probeSubdatasets(projectPath)
-    const hasSubdatasets =
-      subdatasetProbe.hasSubdatasets !== null
-        ? subdatasetProbe.hasSubdatasets
-        : await this.#hasRegisteredSubdatasets(projectPath)
-
+    const hasSubdatasets = await this.#hasRegisteredSubdatasets(projectPath)
     return {
       projectPath,
       classification: hasSubdatasets ? 'superdataset' : 'dataset',
       reason: hasSubdatasets
-        ? subdatasetProbe.reason ?? 'DataLad subdataset probe detected child datasets.'
-        : datasetProbe.reason ?? 'DataLad dataset detected with no child datasets.',
-      classificationSource: {
-        dataset: datasetProbe.source,
-        subdatasets: subdatasetProbe.source
-      },
+        ? 'Found .datalad/config and registered subdatasets in .gitmodules.'
+        : 'Found .datalad/config and no registered subdatasets.',
+      classificationSource: { dataset: 'metadata', subdatasets: 'metadata' },
       isBids,
       bidsReason
     }
@@ -1637,61 +1621,6 @@ export class DataLadAdapter {
       .filter(Boolean)
 
     return { annexSupported: true, missingContentCount: missingPaths.length }
-  }
-
-  async #probeDataLadDataset(projectPath) {
-    const result = await this.runner.run(
-      'datalad',
-      ['-C', projectPath, 'status', '--dataset', '.', '--json'],
-      { timeoutMs: PROBE_TIMEOUT_MS }
-    )
-
-    if (!result.failed) {
-      return {
-        isDataset: true,
-        source: 'datalad-status-probe',
-        reason: 'DataLad status probe succeeded.'
-      }
-    }
-
-    if (NO_DATASET_PATTERN.test(result.stderr ?? '')) {
-      return {
-        isDataset: false,
-        source: 'datalad-status-probe',
-        reason: 'DataLad status reported that this repository is not a dataset.'
-      }
-    }
-
-    return {
-      isDataset: null,
-      source: 'metadata-fallback',
-      reason: null
-    }
-  }
-
-  async #probeSubdatasets(projectPath) {
-    const result = await this.runner.run(
-      'datalad',
-      ['-C', projectPath, 'subdatasets', '--result-renderer', 'disabled'],
-      { timeoutMs: PROBE_TIMEOUT_MS }
-    )
-
-    if (result.failed) {
-      return {
-        hasSubdatasets: null,
-        source: 'metadata-fallback',
-        reason: null
-      }
-    }
-
-    const hasSubdatasets = (result.stdout ?? '').trim().length > 0
-    return {
-      hasSubdatasets,
-      source: 'datalad-subdatasets-probe',
-      reason: hasSubdatasets
-        ? 'DataLad subdatasets probe found at least one child dataset.'
-        : 'DataLad subdatasets probe found no child datasets.'
-    }
   }
 
   async #hasRegisteredSubdatasets(projectPath) {

@@ -54,12 +54,11 @@ export async function launchApp({ identity = true, env = {}, trustedPaths = [], 
   childEnv.GIT_CONFIG_GLOBAL = gitConfigGlobal
   Object.assign(childEnv, env)
 
-  // The first `datalad status` probe detectProject runs (see
-  // DataLadAdapter#probeDataLadDataset) pays a one-time cold-start cost —
+  // The first `datalad` command the app runs pays a one-time cold-start cost —
   // spawning the Python interpreter and importing the datalad package — that
   // can exceed openProject's 30s budget on a loaded CI runner if it lands on
   // the first dataset-fixture test instead of here. Pay it now, in parallel
-  // with the Electron launch, so every later probe in this test file is warm.
+  // with the Electron launch, so every later datalad command in this test file is warm.
   const warmUp = warmUpDatalad()
 
   // DLAD_APP_EXECUTABLE runs a packaged build directly (see packaged.e2e.mjs);

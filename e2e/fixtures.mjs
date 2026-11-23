@@ -1,9 +1,8 @@
 // Builds throwaway project folders for the e2e button-gating suite. Uses
 // plain `git` only (no `datalad`/`git-annex` binaries) so these fixtures
 // work the same in CI runners that don't have DataLad installed as they do
-// on a contributor's machine that does — the app's own dataset-detection
-// fallback (presence of .datalad/config) takes over either way, see
-// DataLadAdapter#probeDataLadDataset.
+// on a contributor's machine that does — the app detects a dataset from the
+// presence of .datalad/config, see DataLadAdapter#detectProject.
 import { execFileSync } from 'node:child_process'
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -61,8 +60,7 @@ export async function createGitRepoWithRemote(root) {
 
 /**
  * A "DataLad dataset" the app can classify without a real `datalad` binary:
- * the adapter falls back to checking for .datalad/config when the `datalad
- * status` probe is unavailable or inconclusive.
+ * the adapter decides from the presence of .datalad/config.
  */
 export async function createDatasetFixture(root) {
   const dir = uniqueDir(root, 'dataset')

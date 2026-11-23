@@ -2,10 +2,6 @@
 
 Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4.
 
-## Unreleased
-
-- **Opening a project is faster.** The project check no longer starts DataLad (two start-ups that always failed and fell back to reading `.datalad/config` and `.gitmodules`). Same result, about 0.2 s less per open on macOS; Windows not measured yet.
-
 ## 0.6.4
 
 - **Open a project from the command line.** `worldline /path/to/project` opens that project like a click in Latest Projects, so the trust prompt still applies. The app runs as one window: a second start (or a folder dropped on the Dock icon on macOS) hands its path to the running window.

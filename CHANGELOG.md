@@ -1,6 +1,12 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3.
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4.
+
+## 0.6.4
+
+- **Open a project from the command line.** `worldline /path/to/project` opens that project like a click in Latest Projects, so the trust prompt still applies. The app runs as one window: a second start (or a folder dropped on the Dock icon on macOS) hands its path to the running window.
+- **Send my saves now sends nested subject datasets too.** Before, renamed or changed subject datasets stayed on your computer while the project's pointers to them were published, and a fresh clone found empty subject folders. The check before a push also covers the remotes of nested subjects.
+- **Send my saves sets up the server folders of new subjects** with one fixed command over SSH (`worldline-ensure-subjects`). See [server setup](docs/server-setup.md); remotes you set on purpose are kept and symlinked subject folders are skipped.
 
 ## 0.6.3
 

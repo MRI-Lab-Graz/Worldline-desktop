@@ -2394,49 +2394,60 @@ elements.filesOutput.addEventListener('click', async (event) => {
   const procedure = state.rootProjectIsBids ? BIDS_PROCEDURE : undefined
   showGlobalBusyOverlay(`Converting ${relativePath}…`)
   let createResult, saveSubResult, saveRootResult
+  const stopped = (result) => {
+    elements.commandOutput.innerHTML = renderCommandResult(result)
+    setLastActionState('Stopped.', 'warning')
+    void refreshWorkingTreeStatus(projectPath)
+    void refreshFileBrowser(projectPath)
+  }
   try {
+    // Plain git/git-annex, about 3x faster. A folder that already has its own .git, .datalad or .gitattributes (for
+    // example one that was set up halfway) is the one case left to DataLad, which can merge with those.
     createResult = await runWorkflowCommand(
-      'createSubdataset',
-      { projectPath, relativePath, procedure, force: true },
+      'nestSubdataset',
+      { projectPath, relativePath, procedure },
       target,
       `Converting ${relativePath}…`,
       { skipBackgroundRefresh: true }
     )
-
     if (shouldStopSequence(createResult)) {
-      elements.commandOutput.innerHTML = renderCommandResult(createResult)
-      setLastActionState('Stopped.', 'warning')
-      void refreshWorkingTreeStatus(projectPath)
-      void refreshFileBrowser(projectPath)
-      return
+      return stopped(createResult)
+    }
+
+    if (createResult?.userError?.code === 'NEST_NEEDS_DATALAD') {
+      createResult = await runWorkflowCommand(
+        'createSubdataset',
+        { projectPath, relativePath, procedure, force: true },
+        target,
+        `Converting ${relativePath}…`,
+        { skipBackgroundRefresh: true }
+      )
+      if (shouldStopSequence(createResult)) {
+        return stopped(createResult)
+      }
+      if (createResult?.ok) {
+        updateGlobalBusyOverlay(`Saving ${relativePath} contents…`, 1, 3)
+        saveSubResult = await runWorkflowCommand(
+          'save',
+          { projectPath: `${projectPath}/${relativePath}`, message: `Add existing ${relativePath} content` },
+          target,
+          `Saving ${relativePath} contents…`,
+          { skipBackgroundRefresh: true }
+        )
+        if (shouldStopSequence(saveSubResult)) {
+          return stopped(saveSubResult)
+        }
+      }
     }
 
     if (!createResult?.ok) {
       elements.commandOutput.innerHTML = renderCommandResult(
-        createResult ?? { ok: false, commandName: 'createSubdataset' }
+        createResult ?? { ok: false, commandName: 'nestSubdataset' }
       )
       setLastActionState(`Could not convert ${relativePath}.`, 'error')
       return
     }
-
-    updateGlobalBusyOverlay(`Saving ${relativePath} contents…`, 1, 3)
-    saveSubResult = await runWorkflowCommand(
-      'save',
-      { projectPath: `${projectPath}/${relativePath}`, message: `Add existing ${relativePath} content` },
-      target,
-      `Saving ${relativePath} contents…`,
-      { skipBackgroundRefresh: true }
-    )
-
-    if (shouldStopSequence(saveSubResult)) {
-      elements.commandOutput.innerHTML = renderCommandResult(saveSubResult)
-      setLastActionState('Stopped.', 'warning')
-      void refreshWorkingTreeStatus(projectPath)
-      void refreshFileBrowser(projectPath)
-      return
-    }
-
-    if (saveSubResult?.ok) {
+    if (!saveSubResult || saveSubResult.ok) {
       await api.linkSubdatasetSource(projectPath, relativePath).catch(() => {})
     }
 

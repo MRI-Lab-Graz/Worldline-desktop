@@ -1,6 +1,15 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4.
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4, v0.6.5.
+
+## 0.6.5
+
+Speed: setting up subject folders no longer waits for DataLad.
+
+- **Opening a project is faster.** The app no longer starts DataLad just to find out whether a folder is a project (about 240 ms down to 12 ms).
+- **Automatic nesting of subject folders is about 3 to 4 times faster.** Subject folders are now set up with plain git and git-annex, which write the same files DataLad writes, and 4 folders are done at the same time. In a test with 16 subjects this went from about 52 s to under 20 s. The progress line shows "Nesting folders… (3 of 16)".
+- **"Convert to subdataset" uses the same quick way.** Only a folder that already has its own `.git`, `.datalad` or `.gitattributes` still goes through DataLad.
+- **Safer by design.** The quick way refuses links, names that leave the project and any setting other than `text2git`, and it asks the trust question again before it runs, like before. See [SECURITY.md](SECURITY.md).
 
 ## 0.6.4
 

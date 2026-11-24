@@ -33,6 +33,20 @@ async function project(folder = 'sub-01') {
 }
 
 const read = (dir, rel) => readFile(join(dir, rel), 'utf8')
+const lf = (text) => text.replace(/\r\n/g, '\n') // DataLad writes CRLF on Windows; git reads both the same way
+
+// What a person would look at to see why a nested subject differs from a DataLad-made one.
+function describe(dir) {
+  const sub = join(dir, 'sub-01')
+  const out = (cwd, ...args) => { try { return git(cwd, ...args).trim() } catch (e) { return `ERR ${e.message.slice(0, 200)}` } }
+  return [
+    ['parent status', out(dir, 'status', '--porcelain')], ['submodule status', out(dir, 'submodule', 'status')],
+    ['parent ls-files -s', out(dir, 'ls-files', '-s')], ['sub status', out(sub, 'status', '--porcelain', '--untracked-files=all')],
+    ['sub branches', out(sub, 'branch', '-a', '-vv')], ['sub log', out(sub, 'log', '--all', '--oneline', '--decorate', '-n', '8')],
+    ['sub config', out(sub, 'config', '--local', '--list')], ['sub diff', out(sub, 'diff', '--stat')],
+    ['sub ls-files -s', out(sub, 'ls-files', '-s')]
+  ].map(([k, v]) => `--- ${k}\n${v}`).join('\n')
+}
 const withoutId = (text) => text.replace(/id = [0-9a-f-]{36}/, 'id = <id>').replace(/datalad-id = [0-9a-f-]{36}/, 'datalad-id = <id>')
 
 test('nestSubdataset leaves what DataLad leaves', { skip }, async () => {
@@ -44,7 +58,7 @@ test('nestSubdataset leaves what DataLad leaves', { skip }, async () => {
   assert.equal(result.ok, true, result.stderr)
 
   for (const file of ['.gitattributes', '.datalad/config', '.datalad/.gitattributes']) {
-    assert.equal(withoutId(await read(viaGit, `sub-01/${file}`)), withoutId(await read(viaDatalad, `sub-01/${file}`)), file)
+    assert.equal(lf(withoutId(await read(viaGit, `sub-01/${file}`))), lf(withoutId(await read(viaDatalad, `sub-01/${file}`))), file)
   }
   const tracked = (dir) => git(join(dir, 'sub-01'), 'ls-files').split('\n').sort()
   assert.deepEqual(tracked(viaGit), tracked(viaDatalad))
@@ -52,7 +66,7 @@ test('nestSubdataset leaves what DataLad leaves', { skip }, async () => {
   assert.deepEqual(annexed(viaGit), annexed(viaDatalad))
   assert.equal(git(join(viaGit, 'sub-01'), 'status', '--porcelain'), '')
   // The parent records the subject the way DataLad does.
-  assert.equal(withoutId(await read(viaGit, '.gitmodules')), withoutId(await read(viaDatalad, '.gitmodules')))
+  assert.equal(lf(withoutId(await read(viaGit, '.gitmodules'))), lf(withoutId(await read(viaDatalad, '.gitmodules'))))
 })
 
 test('DataLad accepts a subject nested with git-annex', { skip }, async () => {
@@ -64,7 +78,8 @@ test('DataLad accepts a subject nested with git-annex', { skip }, async () => {
 
   const listed = execFileSync('datalad', ['-C', dir, 'subdatasets'], { encoding: 'utf8' })
   assert.match(listed, /sub-01/)
-  assert.equal(git(dir, 'status', '--porcelain'), '')
+  const dirty = git(dir, 'status', '--porcelain')
+  assert.equal(dirty, '', dirty && `\n=== nested with git-annex\n${describe(dir)}`)
   const status = execFileSync('datalad', ['-C', dir, 'status', '-r'], { encoding: 'utf8' })
   assert.doesNotMatch(status, /modified|untracked/)
   // A later change inside the subject is saved by DataLad into the subject and recorded in the parent.
@@ -183,4 +198,19 @@ test('a failure after content was moved into the annex keeps the repository, so 
   assert.equal((await broken.runCommand('nestSubdataset', { projectPath: dir, relativePath: 'sub-01' })).ok, false)
   await lstat(join(dir, 'sub-01', '.git'))
   assert.equal(await readFile(join(dir, 'sub-01', 'func', 'events.tsv'), 'utf8'), 'onset\tduration\n1\t2\n')
+})
+
+// TEMPORARY diagnostics for the Windows run: the same project nested both ways, side by side.
+test('DIAG both ways, after the parent save', { skip }, async () => {
+  for (const way of ['datalad', 'git-annex']) {
+    const dir = await project()
+    if (way === 'datalad') {
+      await adapter().runCommand('createSubdataset', { projectPath: dir, relativePath: 'sub-01', procedure: 'text2git', force: true })
+      await adapter().runCommand('save', { projectPath: join(dir, 'sub-01'), message: 'Add existing sub-01 content' })
+    } else {
+      await adapter().runCommand('nestSubdataset', { projectPath: dir, relativePath: 'sub-01', procedure: 'text2git' })
+    }
+    await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })
+    console.log(`\n######## DIAG ${way}\n${describe(dir)}\n`)
+  }
 })

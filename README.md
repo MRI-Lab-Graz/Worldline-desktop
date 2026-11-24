@@ -31,6 +31,7 @@ across nested sub-projects? The app shows you exactly what changed and where.
   The app warns you before anything risky (like saving over a conflict).
 - **See what changed** — one click under a changed file shows exactly which lines (for tables: which cells) changed; Tools → History can compare any earlier save with your files now.
 - **Record how a result was made** — Tools → History → Run & record: type the command and its inputs and outputs, and DataLad saves the result together with the exact command, so anyone can repeat it.
+- **Quick to set up** — opening a project is instant, and subject folders of a BIDS project are turned into their own sub-datasets several at a time (16 subjects in under 20 seconds instead of about a minute).
 - **Get data on demand** — large files tracked by git-annex don't have to
   live on your disk until you need them; fetch with one click, or in BIDS
   projects tick just the subjects, sessions and file types you need

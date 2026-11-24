@@ -55,12 +55,12 @@ This is also the step that follows "Add PRISM data to a downloaded BIDS project"
 
 You have the imaging data on a server and your survey or physio data (PRISM) on your own computer. To bring them together in one project:
 
-1. **Download the project.** Use **Create project → Based on a remote dataset**. This also sets up the subject folders that are their own sub-datasets.
+1. **Download the project.** Use **Create project → Based on a remote dataset**. This also sets up the subject folders that are their own sub-datasets (several at a time, with a progress count such as "Nesting folders… (3 of 16)").
 2. **Use the same subject IDs.** The PRISM folders must carry the same subject IDs as the imaging folders (for example `sub-001` becomes `sub-134001`). Otherwise they are treated as different people. The app cannot guess the match, so rename the folders yourself and keep a note of which ID became which.
 3. **Copy all the PRISM data into the project folder.** Files go into the matching subject folders on their own. When your computer asks about `dataset_description.json`, `participants.tsv` or `participants.json`, choose **keep both** or **skip**, so the project's own files are not replaced. Add the PRISM rows and fields to them by hand afterwards, and copy `project.json` in.
 4. **Save.** One Save records the new files inside each subject folder and in the project; nothing is left over.
 
-Subject folders with no match in the downloaded project are new folders. They stay part of the main project until you turn each one into its own sub-dataset with **Convert to subdataset** in Files. Your saves stay on this computer until you send them with **Send my saves** (see [Sending renamed or new subjects](#sending-renamed-or-new-subjects)).
+Subject folders with no match in the downloaded project are new folders. They stay part of the main project until you turn each one into its own sub-dataset with **Convert to subdataset** in Files (quick for ordinary folders; a folder that already has its own `.git` or `.datalad` takes a little longer). Your saves stay on this computer until you send them with **Send my saves** (see [Sending renamed or new subjects](#sending-renamed-or-new-subjects)).
 
 ## DataLad action surface in MVP
 

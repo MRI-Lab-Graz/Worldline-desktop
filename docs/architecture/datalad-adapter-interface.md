@@ -12,13 +12,15 @@ Source of truth: `src/datalad/schema.js` (`COMMAND_SCHEMAS`): every command's re
 
 ## Command names
 
-- Project: `cloneInstall`, `createProject`, `createSubdataset`
+- Project: `cloneInstall`, `createProject`, `createSubdataset`, `nestSubdataset`, `nestSubdatasets`
 - Data: `get`, `drop`, `verify`, `unlock`
 - History: `save`, `createTag`, `restoreFileFromCommit`, `discardChanges`
 - Remotes: `update`, `push`, `pushTags`, `addRemote`, `disconnectRemote`
 - Branches: `createBranch`, `switchBranch`, `createBranchAt`, `merge`, `finishMerge`, `abortMerge`
 
 `resolveConflict` and `syncSubdatasets` are adapter methods (several git calls), `resolveConflict` is reached through the `adapter:resolveConflict` IPC handler; `syncSubdatasets` is called from `runCommand` after a successful `merge` or `finishMerge`.
+
+`nestSubdataset` (one folder) and `nestSubdatasets` (a batch, 4 folders at a time) turn subject folders into subdatasets with a fixed sequence of git and git-annex calls that writes the same files as `datalad create -c text2git` plus `save`; they are much faster than DataLad. They refuse links, paths leaving the project and procedures other than `text2git`. A folder with its own `.git`, `.datalad` or `.gitattributes` is refused with the code `NEST_NEEDS_DATALAD`, and the app then falls back to `createSubdataset`. Both are in the trust re-check list and the git-identity guard (see `SECURITY.md`).
 
 A new command needs an entry in `COMMAND_SCHEMAS`; anything that writes to a remote must also be in the trust re-check list (see `SECURITY.md`).
 

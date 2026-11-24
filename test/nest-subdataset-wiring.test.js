@@ -29,10 +29,12 @@ function functionBody(source, name) {
   return source.slice(start, source.indexOf('\n}\n', start))
 }
 
-test('automatic nesting makes one nestSubdataset call per subject, not createSubdataset plus a subject save', () => {
+test('automatic nesting makes ONE nestSubdatasets call for all subjects', () => {
   const body = functionBody(app, 'nestBidsCandidates')
-  assert.match(body, /'nestSubdataset'/)
+  assert.match(body, /'nestSubdatasets'/)
+  assert.doesNotMatch(body, /'nestSubdataset'/)
   assert.doesNotMatch(body, /'createSubdataset'/)
+  assert.doesNotMatch(body, /untrackPath/, 'the batch untracks')
   assert.equal(body.split("'save'").length - 1, 1, 'only the parent save is left')
 })
 

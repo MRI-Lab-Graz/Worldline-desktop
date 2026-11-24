@@ -87,6 +87,10 @@ export const COMMAND_SCHEMAS = Object.freeze({
     required: ['projectPath', 'relativePath'],
     optional: ['procedure', 'force']
   },
+  nestSubdataset: {
+    required: ['projectPath', 'relativePath'],
+    optional: ['procedure']
+  },
   disconnectRemote: {
     required: ['projectPath', 'remoteName'],
     optional: []
@@ -110,6 +114,7 @@ const LEADING_DASH_FIELDS = Object.freeze({
   push: ['remoteName'],
   createProject: ['procedure'],
   createSubdataset: ['procedure'],
+  nestSubdataset: ['procedure'],
   disconnectRemote: ['remoteName'],
   run: ['message', 'command']
 })

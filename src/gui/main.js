@@ -333,7 +333,7 @@ handle('adapter:runCommand', async (event, payload) => {
     // This scans (seconds on a big project), so it runs inside the registered run below: a Stop pressed meanwhile
     // is honoured instead of finding nothing to cancel.
     recheckTrust = async () => {
-      if (PUSHES.has(payload.commandName) || payload.commandName === 'createSubdataset') {
+      if (PUSHES.has(payload.commandName) || payload.commandName === 'createSubdataset' || payload.commandName === 'nestSubdataset') {
         await trustGate().require(payload.request.projectPath, { event })
       }
       if (PUSHES.has(payload.commandName)) {

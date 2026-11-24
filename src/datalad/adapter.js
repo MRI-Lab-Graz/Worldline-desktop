@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { lstat, mkdir, open, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { basename, isAbsolute, join, relative, sep } from 'node:path'
@@ -18,6 +19,7 @@ export const CURATED_COMMANDS = new Set([
   'cloneInstall',
   'createProject',
   'createSubdataset',
+  'nestSubdataset',
   'get',
   'save',
   'update',
@@ -459,12 +461,82 @@ export class DataLadAdapter {
     return { linked }
   }
 
+  // `datalad create -c text2git` + `datalad save` for one subject folder, as plain git/git-annex calls: two DataLad
+  // start-ups (about 3 s per subject) become about 1 s. It writes the same files DataLad writes (so DataLad treats the
+  // folder as its own dataset afterwards) and registers it in the parent's .gitmodules; the parent's own save records it.
+  // Fails closed: a symlink, an existing .git or anything unexpected is refused before a single file is written.
+  async #nestSubdataset({ projectPath, relativePath, procedure }, runOptions) {
+    const refuse = (message) =>
+      buildCommandResult(
+        'nestSubdataset',
+        { command: 'git', args: [], exitCode: 1, stdout: '', stderr: message, failed: true },
+        { code: 'NEST_REFUSED', title: 'Could not nest this folder', message, technicalDetails: '' }
+      )
+    if (!isSafeRelativeSubdatasetPath(relativePath) || /[\u0000-\u001f]/.test(relativePath)) {
+      return refuse(`"${relativePath}" is not a folder inside this project.`)
+    }
+    if (procedure !== undefined && procedure !== 'text2git') {
+      return refuse('Only the BIDS setting (text2git) or none is supported here.')
+    }
+    // Every folder on the way must be a real directory: a link could lead the new repository out of the project.
+    let folder = projectPath
+    for (const segment of relativePath.split(/[\\/]+/)) {
+      folder = join(folder, segment)
+      if (!(await lstat(folder).catch(() => null))?.isDirectory()) {
+        return refuse(`"${relativePath}" is not a plain folder (a missing folder or a link cannot be nested).`)
+      }
+    }
+    if (await lstat(join(folder, '.git')).catch(() => null)) {
+      return refuse(`"${relativePath}" already has its own Git history, so it is not changed here.`)
+    }
+
+    const git = (cwd, ...args) => this.runner.run('git', ['-C', cwd, ...args], runOptions)
+    const fail = (result) => buildCommandResult('nestSubdataset', result, mapCommandError('nestSubdataset', result))
+    const id = randomUUID()
+    const attributes = ['* annex.backend=MD5E', '**/.git* annex.largefiles=nothing']
+    if (procedure === 'text2git') {
+      attributes.push('* annex.largefiles=((mimeencoding=binary)and(largerthan=0))')
+    }
+
+    let result = await git(folder, 'init', '-q', '-b', 'main')
+    if (!result.failed) result = await git(folder, 'annex', 'init')
+    if (result.failed) return fail(result)
+    await mkdir(join(folder, '.datalad'), { recursive: true })
+    await writeFile(join(folder, '.gitattributes'), `${attributes.join('\n')}\n`)
+    await writeFile(join(folder, '.datalad', 'config'), `[datalad "dataset"]\n\tid = ${id}\n`)
+    await writeFile(join(folder, '.datalad', '.gitattributes'), 'config annex.largefiles=nothing\n')
+    const steps = [
+      ['add', '--', '.datalad', '.gitattributes'],
+      ['commit', '-q', '-m', '[DATALAD] new dataset'],
+      ['annex', 'add', '--', '.']
+    ]
+    for (const args of steps) {
+      result = await git(folder, ...args)
+      if (result.failed) return fail(result)
+    }
+    const pending = await git(folder, 'status', '--porcelain')
+    if (pending.failed) return fail(pending)
+    if (pending.stdout.trim()) {
+      result = await git(folder, 'commit', '-q', '-m', `Add existing ${relativePath} content`)
+      if (result.failed) return fail(result)
+    }
+    for (const [key, value] of [['path', relativePath], ['url', `./${relativePath}`], ['datalad-id', id]]) {
+      result = await git(projectPath, 'config', '-f', '.gitmodules', `submodule.${relativePath}.${key}`, value)
+      if (result.failed) return fail(result)
+    }
+    return buildCommandResult('nestSubdataset', result)
+  }
+
   async runCommand(commandName, request = {}, runOptions = {}) {
     if (!CURATED_COMMANDS.has(commandName)) {
       throw new Error(`Unsupported command: ${commandName}`)
     }
 
     assertCommandRequest(commandName, request)
+
+    if (commandName === 'nestSubdataset') {
+      return this.#nestSubdataset(request, runOptions)
+    }
 
     if (commandName === 'merge') {
       const refused = await this.#mergePreflight(request.projectPath, runOptions)

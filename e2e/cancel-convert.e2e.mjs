@@ -35,7 +35,12 @@ test.before(async () => {
   process.env.PATH = `${binDir}:${process.env.PATH}`
   process.env.FAKE_DATALAD_LOG = logFile
   app = await launchApp()
-  await app.openProject(await createPlainGitRepo(root))
+  const project = await createPlainGitRepo(root)
+  // A folder with its own .gitattributes is the case Convert still hands to DataLad (anything else is nested with plain
+  // git-annex, which the fake datalad below would never see).
+  await mkdir(join(project, 'sub-x'))
+  await writeFile(join(project, 'sub-x', '.gitattributes'), '')
+  await app.openProject(project)
 })
 
 test.after(async () => {

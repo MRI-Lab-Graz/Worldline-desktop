@@ -15,11 +15,24 @@ import {
   buildCommandResult
 } from './schema.js'
 
+const NEST_WORKERS = 4
+
+// One plain folder name directly in the project. Never a name git or DataLad use themselves: ".git." and "git~1" reach
+// .git on Windows.
+function isPlainNestName(relativePath) {
+  const base = String(relativePath).replace(/[. ]+$/, '').toLowerCase()
+  return !(
+    !isSafeRelativeSubdatasetPath(relativePath) || /[\u0000-\u001f\\/]/.test(relativePath) ||
+    base === '.git' || base === '.datalad' || /^git~\d+$/.test(base)
+  )
+}
+
 export const CURATED_COMMANDS = new Set([
   'cloneInstall',
   'createProject',
   'createSubdataset',
   'nestSubdataset',
+  'nestSubdatasets',
   'get',
   'save',
   'update',
@@ -465,6 +478,53 @@ export class DataLadAdapter {
   // start-ups (about 3 s per subject) become about 1 s. It writes the same files DataLad writes (so DataLad treats the
   // folder as its own dataset afterwards) and registers it in the parent's .gitmodules; the parent's own save records it.
   // Fails closed: a symlink, an existing .git or anything unexpected is refused before a single file is written.
+  // Several subjects at once: each one is `#nestSubdataset`, so every folder gets the same checks. The parent is only
+  // touched one at a time (untracking first, then the .gitmodules lock). A Stop starts no new subject; the running ones
+  // end the way the single command ends them. One failing subject does not stop the others.
+  async #nestSubdatasets({ projectPath, relativePaths, procedure }, runOptions) {
+    const total = relativePaths.length
+    for (const relativePath of relativePaths) {
+      if (runOptions.signal?.aborted) break
+      // Refused below; never touch the parent for a name that cannot be nested or is not a real folder.
+      if (!isPlainNestName(relativePath) || !(await lstat(join(projectPath, relativePath)).catch(() => null))?.isDirectory()) continue
+      await this.untrackPath(projectPath, relativePath).catch(() => {}) // as before: the per-subject nest decides
+    }
+    // Only the "Nested k of N" lines go to the activity line: git's own output from four folders would bury the count.
+    const quiet = { ...runOptions, onOutput: undefined }
+    const subjects = relativePaths.map((relativePath) => ({ relativePath, ok: false, message: 'Not started (stopped).' }))
+    let next = 0
+    let finished = 0
+    const worker = async () => {
+      while (!runOptions.signal?.aborted && next < total) {
+        const index = next++
+        // An exception (a locked file on Windows, say) is this subject's failure, never the batch's.
+        const result = await this.#nestSubdataset({ projectPath, relativePath: relativePaths[index], procedure }, quiet).catch((error) => ({
+          ok: false, stderr: String(error?.message ?? error)
+        }))
+        subjects[index] = { relativePath: relativePaths[index], ok: result.ok, message: result.ok ? '' : result.userError?.message || result.stderr || '' }
+        runOptions.onOutput?.(`Nested ${++finished} of ${total}: ${relativePaths[index]}`)
+      }
+    }
+    // ponytail: 4 fixed (spike on 16 subjects: 12 s -> 3.6 s); raise or adapt only on real Windows measurements.
+    await Promise.all(Array.from({ length: Math.min(NEST_WORKERS, total) }, worker))
+    const failed = subjects.filter((subject) => !subject.ok)
+    const stopped = Boolean(runOptions.signal?.aborted)
+    const run = {
+      command: 'git', args: [], exitCode: failed.length > 0 ? 1 : 0, stdout: '',
+      stderr: failed.map((subject) => `${subject.relativePath}: ${subject.message}`).join('\n'),
+      failed: failed.length > 0, subjects, ...(stopped ? { cancelled: true } : {})
+    }
+    return buildCommandResult('nestSubdatasets', run, run.failed ? mapCommandError('nestSubdatasets', run) : null)
+  }
+
+  #gitmodulesQueue = Promise.resolve()
+  // One at a time, in order; a failing step does not block the next.
+  #withGitmodulesLock(step) {
+    const run = this.#gitmodulesQueue.then(step, step)
+    this.#gitmodulesQueue = run.catch(() => {})
+    return run
+  }
+
   async #nestSubdataset({ projectPath, relativePath, procedure }, runOptions) {
     const refuse = (message, code = 'NEST_REFUSED') =>
       buildCommandResult(
@@ -474,11 +534,7 @@ export class DataLadAdapter {
       )
     // One plain folder name directly in the project (auto-nest only ever sends those). Never a name git or DataLad use
     // themselves: ".git." and "git~1" reach .git on Windows.
-    const base = String(relativePath).replace(/[. ]+$/, '').toLowerCase()
-    if (
-      !isSafeRelativeSubdatasetPath(relativePath) || /[\u0000-\u001f\\/]/.test(relativePath) ||
-      base === '.git' || base === '.datalad' || /^git~\d+$/.test(base)
-    ) {
+    if (!isPlainNestName(relativePath)) {
       return refuse(`"${relativePath}" is not a folder name this can nest.`)
     }
     if (procedure !== undefined && procedure !== 'text2git') {
@@ -552,10 +608,18 @@ export class DataLadAdapter {
       result = await git(folder, 'annex', 'sync', '--no-push', '--no-pull', '--no-commit', '--no-content')
       if (result.failed) return fail(result)
     }
-    for (const [key, value] of [['path', relativePath], ['url', `./${relativePath}`], ['datalad-id', id]]) {
-      result = await git(projectPath, 'config', '-f', '.gitmodules', `submodule.${relativePath}.${key}`, value)
-      if (result.failed) return fail(result)
-    }
+    // The one step that writes in the parent: git locks .gitmodules, so two at once make the second fail.
+    result = await this.#withGitmodulesLock(async () => {
+      let last
+      for (const [key, value] of [['path', relativePath], ['url', `./${relativePath}`], ['datalad-id', id]]) {
+        // No Stop signal here: once the content is in the annex, registering takes a moment and a half-written entry
+        // (or none) would leave a folder that auto-nesting then refuses.
+        last = await this.runner.run('git', ['-C', projectPath, 'config', '-f', '.gitmodules', `submodule.${relativePath}.${key}`, value], { ...runOptions, signal: undefined })
+        if (last.failed) return last
+      }
+      return last
+    })
+    if (result.failed) return fail(result)
     return buildCommandResult('nestSubdataset', result)
   }
 
@@ -568,6 +632,9 @@ export class DataLadAdapter {
 
     if (commandName === 'nestSubdataset') {
       return this.#nestSubdataset(request, runOptions)
+    }
+    if (commandName === 'nestSubdatasets') {
+      return this.#nestSubdatasets(request, runOptions)
     }
 
     if (commandName === 'merge') {

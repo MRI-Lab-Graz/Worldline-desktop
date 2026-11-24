@@ -41,6 +41,7 @@ import {
   formatActivityLine,
   formatDurationLine,
   formatProgress,
+  parseNestProgress,
   renderRunningRows,
   shouldShowUserErrorMessage,
   shouldStopSequence
@@ -1120,7 +1121,7 @@ async function detectAndMaybeNestBids(projectPath, button) {
   try {
     nested = await nestBidsCandidates(projectPath, candidates, button, (current, total, label) => {
       updateGlobalBusyOverlay(
-        current < total ? `Nesting ${label}… (${current + 1} of ${total})` : `Saving project setup (${total}/${total})…`,
+        current < total ? `Nesting ${label}…` : `Saving project setup…`,
         current,
         total
       )
@@ -1150,44 +1151,48 @@ async function detectAndMaybeNestBids(projectPath, button) {
 async function nestBidsCandidates(projectPath, candidatePaths, button, onProgress) {
   const steps = []
   const succeeded = []
-  let cancelled = false
   const total = candidatePaths.length
 
-  for (const [index, candidatePath] of candidatePaths.entries()) {
-    onProgress?.(index, total, candidatePath)
-    try {
-      await api.untrackPath(projectPath, candidatePath).catch(() => {})
-
-      // One git/git-annex command per subject (create + save of its content), about 3x faster than two DataLad calls.
-      const nestResult = await runWorkflowCommand(
-        'nestSubdataset',
-        { projectPath, relativePath: candidatePath, procedure: BIDS_PROCEDURE },
-        button,
-        `Nesting ${candidatePath}…`,
-        { skipBackgroundRefresh: true }
-      )
-      steps.push({ label: `Nest subdataset: ${candidatePath}`, result: nestResult })
-      if (shouldStopSequence(nestResult)) {
-        cancelled = true
-        break
-      }
-      if (nestResult?.ok) {
-        // So the files this folder still lacks can be downloaded from the project's source later.
-        await api.linkSubdatasetSource(projectPath, candidatePath).catch(() => {})
-        succeeded.push(candidatePath)
-      }
-    } catch (error) {
-      // One candidate throwing unexpectedly shouldn't take the rest down
-      // with it — same best-effort philosophy as an ordinary command
-      // failure, just covering truly unexpected errors too.
-      steps.push({ label: `Create subdataset: ${candidatePath}`, result: { ok: false, userError: { message: String(error.message) } } })
+  onProgress?.(0, total, `${total} folder(s)`)
+  try {
+    // One batch call: untracks each folder, then nests four at a time with plain git/git-annex (about 3x faster than
+    // DataLad, and several at once). One folder failing does not stop the rest.
+    const batch = await runWorkflowCommand(
+      'nestSubdatasets',
+      { projectPath, relativePaths: candidatePaths, procedure: BIDS_PROCEDURE },
+      button,
+      `Nesting ${total} folder(s)…`,
+      { skipBackgroundRefresh: true, progressTotal: total }
+    )
+    for (const subject of batch?.subjects ?? []) {
+      steps.push({
+        label: `Nest subdataset: ${subject.relativePath}`,
+        result: {
+          ok: subject.ok, commandName: 'nestSubdatasets', exitCode: subject.ok ? 0 : 1, stdout: '', stderr: subject.message,
+          failed: !subject.ok, warnings: [],
+          userError: subject.ok ? null : { code: 'NEST_FAILED', title: 'Could not nest this folder', message: subject.message, technicalDetails: '' }
+        }
+      })
     }
+    if (!batch?.subjects) {
+      steps.push({ label: 'Nest subdatasets', result: batch })
+    }
+    // The folders that did get nested still get linked to the project's download source (below), even after a Stop.
+    for (const subject of batch?.subjects ?? []) {
+      if (subject.ok) {
+        // So the files this folder still lacks can be downloaded from the project's source later.
+        await api.linkSubdatasetSource(projectPath, subject.relativePath).catch(() => {})
+        succeeded.push(subject.relativePath)
+      }
+    }
+    if (shouldStopSequence(batch)) {
+      return { steps, succeeded, cancelled: true }
+    }
+  } catch (error) {
+    // Truly unexpected errors: report them and still save what was nested.
+    steps.push({ label: 'Nest subdatasets', result: { ok: false, userError: { message: String(error.message) } } })
   }
   onProgress?.(total, total, null)
-
-  if (cancelled) {
-    return { steps, succeeded, cancelled: true }
-  }
 
   const rootSaveResult = await runWorkflowCommand(
     'save',
@@ -2557,6 +2562,10 @@ function untrackRun(runId) {
 // Activity arrives several times a second: update just the text node so the
 // Cancel button keeps focus instead of being re-rendered under the user.
 api.onCommandActivity(({ runId, line }) => {
+  const nested = parseNestProgress(line)
+  if (nested && !elements.globalBusyOverlay.hidden) {
+    updateGlobalBusyOverlay(`Nesting folders… (${nested.done} of ${nested.total})`, nested.done, nested.total)
+  }
   const run = state.activeRuns.get(runId)
   if (!run) {
     return

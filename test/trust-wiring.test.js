@@ -116,7 +116,7 @@ test('every IPC handler is classified', () => {
 test('the push/nesting re-check runs inside the registered run, so a Stop pressed during it is honoured', () => {
   const body = block("handle('adapter:runCommand'")
   assert.match(body, /runWithHandle\(event, payload\.runId, async \(runOptions\) => \{\s*await recheckTrust\(\)\s*return adapter\.runCommand\(/)
-  assert.match(body, /recheckTrust = async \(\) => \{\s*if \(PUSHES\.has\(payload\.commandName\) \|\| payload\.commandName === 'createSubdataset' \|\| payload\.commandName === 'nestSubdataset'\) \{\s*await trustGate\(\)\.require\(payload\.request\.projectPath, \{ event \}\)[\s\S]*?localRemotePaths\(/)
+  assert.match(body, /recheckTrust = async \(\) => \{\s*if \(PUSHES\.has\(payload\.commandName\) \|\| payload\.commandName === 'createSubdataset' \|\| payload\.commandName === 'nestSubdataset' \|\| payload\.commandName === 'nestSubdatasets'\) \{\s*await trustGate\(\)\.require\(payload\.request\.projectPath, \{ event \}\)[\s\S]*?localRemotePaths\(/)
 })
 
 test('sending versions to a remote re-checks trust exactly like Publish', () => {
@@ -170,7 +170,7 @@ test('every command that writes to a remote is re-checked in main.js', async () 
   const { DataLadAdapter, CURATED_COMMANDS } = await import('../src/datalad/adapter.js')
   const request = {
     projectPath: '/p', paths: ['a'], message: 'm', branchName: 'b', startPoint: 'abc1234', commitHash: 'abc1234',
-    tagName: 't', tagNames: ['t'], remoteName: 'r', url: '/x', targetPath: '/t', source: 's', relativePath: 'rel', command: 'echo hi'
+    tagName: 't', tagNames: ['t'], remoteName: 'r', url: '/x', targetPath: '/t', source: 's', relativePath: 'rel', relativePaths: ['rel'], command: 'echo hi'
   }
   const pushes = []
   const addsRemote = []

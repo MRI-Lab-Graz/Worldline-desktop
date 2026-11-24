@@ -220,3 +220,181 @@ test('on an adjusted branch (Windows, crippled filesystem) the content reaches t
   assert.equal((await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })).ok, true)
   assert.equal(git(dir, 'ls-files', '-s', 'sub-01').split(/\s+/)[1], git(sub, 'rev-parse', 'main').trim(), 'the parent records main')
 })
+
+// A project with several subject folders, one commit.
+async function projectWith(count) {
+  const dir = await mkdtemp(join(tmpdir(), 'dlad-nest-many-'))
+  git(dir, 'init', '-q', '-b', 'main')
+  git(dir, 'annex', 'init', 'test')
+  for (let i = 1; i <= count; i++) {
+    const name = `sub-${String(i).padStart(2, '0')}`
+    await mkdir(join(dir, name, 'anat'), { recursive: true })
+    await writeFile(join(dir, name, 'anat', 'T1w.nii'), `brain data ${name}`)
+    await writeFile(join(dir, name, 'events.tsv'), 'onset\tduration\n1\t2\n')
+  }
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'start')
+  return dir
+}
+const registered = (dir) => git(dir, 'config', '-f', '.gitmodules', '--get-regexp', '\\.path$').trim().split('\n').filter(Boolean)
+
+test('several nestSubdataset calls at once all register in .gitmodules', { skip }, async () => {
+  const dir = await projectWith(8)
+  const one = adapter()
+  const results = await Promise.all(
+    Array.from({ length: 8 }, (_, i) => one.runCommand('nestSubdataset', { projectPath: dir, relativePath: `sub-0${i + 1}`, procedure: 'text2git' }))
+  )
+  for (const result of results) assert.equal(result.ok, true, result.stderr)
+  assert.equal(registered(dir).length, 8)
+})
+
+// On Windows git-annex works on an adjusted branch and DataLad itself leaves the parent showing the subject as modified.
+const onAdjustedBranch = (dir) => git(join(dir, 'sub-01'), 'branch', '--show-current').startsWith('adjusted/')
+const names = (count) => Array.from({ length: count }, (_, i) => `sub-${String(i + 1).padStart(2, '0')}`)
+const batch = (dir, relativePaths, options = {}, runner = undefined) =>
+  (runner ? new DataLadAdapter({ runner }) : adapter()).runCommand('nestSubdatasets', { projectPath: dir, relativePaths, procedure: 'text2git' }, options)
+
+test('nestSubdatasets nests 16 subjects at once and leaves what one at a time leaves', { skip }, async () => {
+  const together = await projectWith(16)
+  const oneByOne = await projectWith(16)
+  const result = await batch(together, names(16))
+  assert.equal(result.ok, true, result.stderr)
+  assert.deepEqual(result.subjects.map((s) => [s.relativePath, s.ok]), names(16).map((n) => [n, true]))
+  for (const name of names(16)) {
+    assert.equal((await adapter().runCommand('nestSubdataset', { projectPath: oneByOne, relativePath: name, procedure: 'text2git' })).ok, true)
+  }
+  assert.equal(registered(together).length, 16)
+  for (const name of names(16)) {
+    for (const file of ['.gitattributes', '.datalad/config', '.datalad/.gitattributes']) {
+      assert.equal(withoutId(lf(await read(together, `${name}/${file}`))), withoutId(lf(await read(oneByOne, `${name}/${file}`))), `${name}/${file}`)
+    }
+    assert.equal(git(join(together, name), 'log', '--format=%s').trim(), git(join(oneByOne, name), 'log', '--format=%s').trim(), `${name} history`)
+  }
+  assert.equal((await adapter().runCommand('save', { projectPath: together, message: 'Nest' })).ok, true)
+  if (!onAdjustedBranch(together)) assert.equal(git(together, 'status', '--porcelain').trim(), '', describe(together))
+})
+
+test('DataLad accepts every subject nested by the batch', { skip }, async () => {
+  const dir = await projectWith(6)
+  assert.equal((await batch(dir, names(6))).ok, true)
+  assert.equal((await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })).ok, true)
+  const listed = execFileSync('datalad', ['-C', dir, 'subdatasets', '--fulfilled', 'true'], { encoding: 'utf8' })
+  for (const name of names(6)) assert.ok(listed.includes(name), `${name} is not listed:\n${listed}`)
+})
+
+test('a refused subject does not stop the others, and the result says which', { skip }, async () => {
+  const dir = await projectWith(6)
+  git(join(dir, 'sub-03'), 'init', '-q')
+  const result = await batch(dir, names(6))
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.subjects.filter((s) => !s.ok).map((s) => s.relativePath), ['sub-03'])
+  assert.equal(registered(dir).length, 5)
+})
+
+test('a failing subject does not stop the others', { skip }, async () => {
+  const dir = await projectWith(6)
+  const real = new ProcessRunner()
+  const runner = { run: (command, args, options) => (args[1]?.endsWith('sub-02') && args.includes('init') && args.includes('annex')
+    ? Promise.resolve({ command, args, exitCode: 1, stdout: '', stderr: 'boom', failed: true }) : real.run(command, args, options)) }
+  const result = await batch(dir, names(6), {}, runner)
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.subjects.filter((s) => !s.ok).map((s) => s.relativePath), ['sub-02'])
+  assert.equal(registered(dir).length, 5)
+  await assert.rejects(lstat(join(dir, 'sub-02', '.git')), 'the failed subject is left clean for a retry')
+})
+
+test('Stop in the middle starts nothing new and leaves every subject whole or untouched', { skip }, async () => {
+  const dir = await projectWith(16)
+  const controller = new AbortController()
+  const result = await batch(dir, names(16), { signal: controller.signal, onOutput: (line) => /^Nested /.test(line) && controller.abort() })
+  assert.equal(result.ok, false)
+  assert.equal(result.cancelled, true)
+  const done = registered(dir).length
+  assert.ok(done >= 1 && done < 16, `${done} of 16 nested`)
+  for (const name of names(16)) {
+    const has = (entry) => lstat(join(dir, name, entry)).then(() => true, () => false)
+    if (!(await has('.git'))) {
+      assert.equal(await has('.datalad'), false, `${name} left a .datalad`)
+      assert.equal(await has('.gitattributes'), false, `${name} left a .gitattributes`)
+    }
+  }
+  for (const entry of registered(dir)) {
+    const name = entry.split('.')[1]
+    await lstat(join(dir, name, '.git'))
+  }
+})
+
+test('several subjects at once on an adjusted branch (Windows) all reach the branch the parent records', { skip }, async () => {
+  const dir = await projectWith(6)
+  const saved = { ...process.env }
+  Object.assign(process.env, { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'annex.crippledfilesystem', GIT_CONFIG_VALUE_0: 'true' })
+  try {
+    const result = await batch(dir, names(6))
+    assert.equal(result.ok, true, result.stderr)
+  } finally {
+    for (const key of ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) delete process.env[key]
+    Object.assign(process.env, saved)
+  }
+  for (const name of names(6)) {
+    const files = git(join(dir, name), 'ls-tree', '-r', '--name-only', 'main').split('\n')
+    assert.ok(files.includes('anat/T1w.nii') && files.includes('.gitattributes'), `${name}: main lacks the content`)
+  }
+  assert.equal((await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })).ok, true)
+  for (const name of names(6)) {
+    assert.equal(git(dir, 'ls-files', '-s', name).split(/\s+/)[1], git(join(dir, name), 'rev-parse', 'main').trim(), `${name}: the parent records main`)
+  }
+})
+
+test('subjects the parent tracks and subjects it does not both end up nested and clean', { skip }, async () => {
+  const dir = await projectWith(2)
+  await mkdir(join(dir, 'sub-03'))
+  await writeFile(join(dir, 'sub-03', 'events.tsv'), 'onset\n1\n')
+  const result = await batch(dir, names(3))
+  assert.equal(result.ok, true, result.stderr)
+  assert.equal((await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })).ok, true)
+  assert.equal(new Set(registered(dir)).size, 3) // DataLad's save writes the entries a second time (same values; not new in this change)
+  if (!onAdjustedBranch(dir)) assert.equal(git(dir, 'status', '--porcelain').trim(), '', describe(dir))
+})
+
+test('an exception in one subject becomes that subject\'s failure; the others finish and the result comes back', { skip }, async () => {
+  const dir = await projectWith(6)
+  const real = new ProcessRunner()
+  const runner = { run: (command, args, options) => {
+    if (args[1]?.endsWith('sub-02') && args.includes('annex') && args.includes('init')) throw new Error('EBUSY: resource busy')
+    return real.run(command, args, options)
+  } }
+  const result = await batch(dir, names(6), {}, runner)
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.subjects.filter((s) => !s.ok).map((s) => s.relativePath), ['sub-02'])
+  assert.match(result.subjects[1].message, /EBUSY/)
+  assert.equal(registered(dir).length, 5)
+})
+
+test('names that cannot be nested are never untracked in the parent', { skip }, async () => {
+  const dir = await projectWith(1)
+  await writeFile(join(dir, '.gitattributes'), '* annex.backend=MD5E\n')
+  git(dir, 'add', '.gitattributes')
+  git(dir, 'commit', '-q', '-m', 'attrs')
+  const before = git(dir, 'log', '--oneline').trim().split('\n').length
+  const result = await batch(dir, ['.gitattributes', '.datalad', 'a/b', 'sub-01'])
+  assert.deepEqual(result.subjects.map((s) => s.ok), [false, false, false, true])
+  assert.ok(git(dir, 'ls-files', '.gitattributes').includes('.gitattributes'), 'the parent still tracks its own .gitattributes')
+  assert.equal(git(dir, 'log', '--oneline').trim().split('\n').length, before + 1, 'only sub-01 was untracked (one commit)')
+})
+
+test('a Stop that lands while a subject is being registered still finishes that subject\'s .gitmodules entry', { skip }, async () => {
+  const dir = await projectWith(4)
+  const controller = new AbortController()
+  const real = new ProcessRunner()
+  let caught = null
+  const runner = { run: (command, args, options) => {
+    const key = args.includes('config') && args.includes('.gitmodules') && /^submodule\.(.+)\.path$/.exec(args.at(-2))
+    if (!caught && key) { caught = key[1]; controller.abort() }
+    return real.run(command, args, options)
+  } }
+  const result = await batch(dir, names(4), { signal: controller.signal }, runner)
+  assert.equal(result.cancelled, true)
+  assert.ok(caught, 'the test must have stopped during a registration')
+  const keys = git(dir, 'config', '-f', '.gitmodules', '--name-only', '--get-regexp', `^submodule\\.${caught}\\.`).trim().split('\n').map((name) => name.split('.').pop())
+  assert.deepEqual(keys.sort(), ['datalad-id', 'path', 'url'], `${caught} must have path, url and datalad-id`)
+})

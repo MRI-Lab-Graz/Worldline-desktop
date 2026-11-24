@@ -88,3 +88,9 @@ export function formatDurationLine(durationMs, cancelled = false) {
 export function shouldShowUserErrorMessage(result) {
   return !result.ok && Boolean(result.userError) && !result.cancelled
 }
+
+// The batch "nestSubdatasets" reports "Nested 3 of 16: sub-03" after each subject; null for any other line.
+export function parseNestProgress(line) {
+  const match = /^Nested (\d+) of (\d+)/.exec(String(line))
+  return match ? { done: Number(match[1]), total: Number(match[2]) } : null
+}

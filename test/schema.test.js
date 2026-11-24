@@ -132,3 +132,19 @@ test('merge needs a project and a branch, and a branch cannot be an option', () 
   assert.doesNotThrow(() => assertCommandRequest('finishMerge', { projectPath: '/p' }))
   assert.doesNotThrow(() => assertCommandRequest('abortMerge', { projectPath: '/p' }))
 })
+
+test('nestSubdatasets takes a list of folder names and refuses anything else', () => {
+  const ok = { projectPath: '/p', relativePaths: ['sub-01', 'sub-02'], procedure: 'text2git' }
+  assertCommandRequest('nestSubdatasets', ok)
+  assertCommandRequest('nestSubdatasets', { projectPath: '/p', relativePaths: ['sub-01'] })
+  for (const relativePaths of [[], 'sub-01', [7], [''], Array.from({ length: 1001 }, (_, i) => `sub-${i}`)]) {
+    assert.throws(() => assertCommandRequest('nestSubdatasets', { ...ok, relativePaths }), /nestSubdatasets/, JSON.stringify(relativePaths).slice(0, 40))
+  }
+  assert.throws(() => assertCommandRequest('nestSubdatasets', { ...ok, procedure: '-x' }), /cannot start with -/)
+})
+
+test('nestSubdatasets refuses a name listed twice, also when only case, a trailing dot or a space differs (the same folder on Windows)', () => {
+  for (const relativePaths of [['sub-01', 'sub-01'], ['sub-01', 'SUB-01'], ['sub-01', 'sub-01.'], ['sub-01', 'sub-01 ']]) {
+    assert.throws(() => assertCommandRequest('nestSubdatasets', { projectPath: '/p', relativePaths }), /nestSubdatasets.*twice/, JSON.stringify(relativePaths))
+  }
+})

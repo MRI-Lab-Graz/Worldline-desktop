@@ -11,6 +11,14 @@ test('nestSubdataset gets the same trust re-check as createSubdataset, right bef
   assert.match(main, /payload\.commandName === 'createSubdataset' \|\| payload\.commandName === 'nestSubdataset'/)
 })
 
+test('nestSubdatasets (the batch) gets the same trust re-check', () => {
+  assert.match(main, /payload\.commandName === 'nestSubdataset' \|\| payload\.commandName === 'nestSubdatasets'/)
+})
+
+test('nestSubdatasets is blocked while the git identity is incomplete', () => {
+  assert.equal(shouldBlockForIdentity('nestSubdatasets', { available: true, name: '', email: '', complete: false }), true)
+})
+
 test('nestSubdataset is blocked while the git identity is incomplete', () => {
   assert.equal(shouldBlockForIdentity('nestSubdataset', { available: true, name: '', email: '', complete: false }), true)
 })

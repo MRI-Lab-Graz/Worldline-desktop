@@ -204,65 +204,28 @@ test('detectProject returns superdataset when datalad metadata and subdatasets e
   assert.equal(project.classification, 'superdataset')
 })
 
-test('detectProject uses datalad probe even when .datalad metadata is missing', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'dlad-probe-dataset-'))
-  const runner = new FakeRunner()
-  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], {
-    exitCode: 0,
-    stdout: 'true\n',
-    stderr: '',
-    failed: false
-  })
-  runner.set('datalad', ['-C', root, 'status', '--dataset', '.', '--json'], {
-    exitCode: 0,
-    stdout: '{"status":"ok"}\n',
-    stderr: '',
-    failed: false
-  })
-  runner.set('datalad', ['-C', root, 'subdatasets', '--result-renderer', 'disabled'], {
-    exitCode: 0,
-    stdout: '',
-    stderr: '',
-    failed: false
-  })
-
-  const adapter = new DataLadAdapter({ runner })
-  const project = await adapter.detectProject(root)
-
-  assert.equal(project.classification, 'dataset')
-  assert.equal(project.classificationSource.dataset, 'datalad-status-probe')
-})
-
-test('detectProject falls back to metadata when datalad probe is inconclusive', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'dlad-fallback-dataset-'))
+test('detectProject never starts datalad: opening a project is decided from .datalad/config and .gitmodules', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dlad-nodatalad-'))
   await mkdir(join(root, '.datalad'), { recursive: true })
   await writeFile(join(root, '.datalad', 'config'), '[datalad]\n')
-
   const runner = new FakeRunner()
-  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], {
-    exitCode: 0,
-    stdout: 'true\n',
-    stderr: '',
-    failed: false
-  })
-  runner.set('datalad', ['-C', root, 'status', '--dataset', '.', '--json'], {
-    exitCode: 1,
-    stdout: '',
-    stderr: 'datalad backend is busy, try again',
-    failed: true
-  })
-  runner.set('datalad', ['-C', root, 'subdatasets', '--result-renderer', 'disabled'], {
-    exitCode: 1,
-    stdout: '',
-    stderr: 'subdatasets unavailable right now',
-    failed: true
-  })
+  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { exitCode: 0, stdout: 'true\n', stderr: '', failed: false })
 
-  const adapter = new DataLadAdapter({ runner })
-  const project = await adapter.detectProject(root)
+  const project = await new DataLadAdapter({ runner }).detectProject(root)
 
   assert.equal(project.classification, 'dataset')
-  assert.equal(project.classificationSource.dataset, 'metadata-fallback')
+  assert.deepEqual(runner.calls.filter((call) => call.command === 'datalad'), [])
+})
+
+test('detectProject: a plain git repository without .datalad/config is classified git', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dlad-plaingit-'))
+  const runner = new FakeRunner()
+  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { exitCode: 0, stdout: 'true\n', stderr: '', failed: false })
+
+  const project = await new DataLadAdapter({ runner }).detectProject(root)
+
+  assert.equal(project.classification, 'git')
+  assert.deepEqual(runner.calls.filter((call) => call.command === 'datalad'), [])
 })
 
 test('listDatasets returns root dataset and nested subdatasets from .gitmodules', async () => {
@@ -1941,29 +1904,6 @@ test('git-annex recovery step tells Windows users Git for Windows is needed too'
     supported: false, issues: [{ code: 'GIT_ANNEX_MISSING' }]
   })
   assert.match(report.recoverySteps[0], /Git for Windows/)
-})
-
-test('detectProject bounds its datalad probes with a timeout so a hung process cannot stall detection', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'dlad-timeout-'))
-  await mkdir(join(root, '.datalad'), { recursive: true })
-  await writeFile(join(root, '.datalad', 'config'), '[datalad]\n')
-  const runner = new FakeRunner()
-  runner.set('git', ['-C', root, 'rev-parse', '--is-inside-work-tree'], { stdout: 'true\n' })
-  runner.set('datalad', ['-C', root, 'status', '--dataset', '.', '--json'], {
-    exitCode: 124,
-    stderr: 'datalad timed out after 45000ms',
-    failed: true
-  })
-
-  const project = await new DataLadAdapter({ runner }).detectProject(root)
-
-  // A timed-out probe is inconclusive, so the .datalad/config marker decides.
-  assert.equal(project.classification, 'dataset')
-  const probeCalls = runner.calls.filter((call) => call.command === 'datalad')
-  assert.ok(probeCalls.length >= 1)
-  for (const call of probeCalls) {
-    assert.ok(call.options.timeoutMs > 0, `${call.args.join(' ')} has no timeoutMs`)
-  }
 })
 
 test('runCommand hands signal and onOutput to the runner and maps a cancelled run to CANCELLED', async () => {

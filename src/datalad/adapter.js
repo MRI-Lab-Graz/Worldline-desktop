@@ -542,6 +542,13 @@ export class DataLadAdapter {
       result = await git(folder, 'commit', '-q', '-m', `Add existing ${relativePath} content`)
       if (result.failed) return fail(result)
     }
+    // Windows and other filesystems without symlinks: git-annex works on an adjusted branch, and the parent records its
+    // basis branch. Copy the commits back, as DataLad does after every save, or the parent records a folder without content.
+    const branch = await git(folder, 'branch', '--show-current')
+    if (branch.stdout.trim().startsWith('adjusted/')) {
+      result = await git(folder, 'annex', 'sync', '--no-push', '--no-pull', '--no-commit', '--no-content')
+      if (result.failed) return fail(result)
+    }
     for (const [key, value] of [['path', relativePath], ['url', `./${relativePath}`], ['datalad-id', id]]) {
       result = await git(projectPath, 'config', '-f', '.gitmodules', `submodule.${relativePath}.${key}`, value)
       if (result.failed) return fail(result)

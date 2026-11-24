@@ -79,7 +79,8 @@ test('DataLad accepts a subject nested with git-annex', { skip }, async () => {
   const listed = execFileSync('datalad', ['-C', dir, 'subdatasets'], { encoding: 'utf8' })
   assert.match(listed, /sub-01/)
   const dirty = git(dir, 'status', '--porcelain')
-  assert.equal(dirty, '', dirty && `\n=== nested with git-annex\n${describe(dir)}`)
+  // On Windows git-annex works on an adjusted branch and DataLad itself leaves the parent showing the subject as modified.
+  if (!git(join(dir, 'sub-01'), 'branch', '--show-current').startsWith('adjusted/')) assert.equal(dirty, '', `\n${describe(dir)}`)
   const status = execFileSync('datalad', ['-C', dir, 'status', '-r'], { encoding: 'utf8' })
   assert.doesNotMatch(status, /modified|untracked/)
   // A later change inside the subject is saved by DataLad into the subject and recorded in the parent.
@@ -200,17 +201,21 @@ test('a failure after content was moved into the annex keeps the repository, so 
   assert.equal(await readFile(join(dir, 'sub-01', 'func', 'events.tsv'), 'utf8'), 'onset\tduration\n1\t2\n')
 })
 
-// TEMPORARY diagnostics for the Windows run: the same project nested both ways, side by side.
-test('DIAG both ways, after the parent save', { skip }, async () => {
-  for (const way of ['datalad', 'git-annex']) {
-    const dir = await project()
-    if (way === 'datalad') {
-      await adapter().runCommand('createSubdataset', { projectPath: dir, relativePath: 'sub-01', procedure: 'text2git', force: true })
-      await adapter().runCommand('save', { projectPath: join(dir, 'sub-01'), message: 'Add existing sub-01 content' })
-    } else {
-      await adapter().runCommand('nestSubdataset', { projectPath: dir, relativePath: 'sub-01', procedure: 'text2git' })
-    }
-    await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })
-    console.log(`\n######## DIAG ${way}\n${describe(dir)}\n`)
+test('on an adjusted branch (Windows, crippled filesystem) the content reaches the branch the parent records', { skip }, async () => {
+  const dir = await project()
+  const saved = { ...process.env }
+  Object.assign(process.env, { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'annex.crippledfilesystem', GIT_CONFIG_VALUE_0: 'true' })
+  try {
+    const result = await adapter().runCommand('nestSubdataset', { projectPath: dir, relativePath: 'sub-01', procedure: 'text2git' })
+    assert.equal(result.ok, true, result.stderr)
+  } finally {
+    for (const key of ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) delete process.env[key]
+    Object.assign(process.env, saved)
   }
+  const sub = join(dir, 'sub-01')
+  assert.match(git(sub, 'branch', '--show-current'), /^adjusted\//, 'the test must really be on an adjusted branch')
+  const files = git(sub, 'ls-tree', '-r', '--name-only', 'main').split('\n')
+  assert.ok(files.includes('anat/T1w.nii') && files.includes('.gitattributes'), `main lacks the content:\n${describe(dir)}`)
+  assert.equal((await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })).ok, true)
+  assert.equal(git(dir, 'ls-files', '-s', 'sub-01').split(/\s+/)[1], git(sub, 'rev-parse', 'main').trim(), 'the parent records main')
 })

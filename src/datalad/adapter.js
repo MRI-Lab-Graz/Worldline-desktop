@@ -466,11 +466,11 @@ export class DataLadAdapter {
   // folder as its own dataset afterwards) and registers it in the parent's .gitmodules; the parent's own save records it.
   // Fails closed: a symlink, an existing .git or anything unexpected is refused before a single file is written.
   async #nestSubdataset({ projectPath, relativePath, procedure }, runOptions) {
-    const refuse = (message) =>
+    const refuse = (message, code = 'NEST_REFUSED') =>
       buildCommandResult(
         'nestSubdataset',
         { command: 'git', args: [], exitCode: 1, stdout: '', stderr: message, failed: true },
-        { code: 'NEST_REFUSED', title: 'Could not nest this folder', message, technicalDetails: '' }
+        { code, title: 'Could not nest this folder', message, technicalDetails: '' }
       )
     // One plain folder name directly in the project (auto-nest only ever sends those). Never a name git or DataLad use
     // themselves: ".git." and "git~1" reach .git on Windows.
@@ -491,9 +491,12 @@ export class DataLadAdapter {
       return refuse(`"${relativePath}" is not a plain folder (a missing folder or a link cannot be nested).`)
     }
     for (const name of ['.git', '.datalad', '.gitattributes']) {
-      if (await lstat(join(folder, name)).catch(() => null)) {
+      const existing = await lstat(join(folder, name)).catch(() => null)
+      if (existing) {
+        // A real file or folder: DataLad can merge with it ("Convert to subdataset" falls back on this code). A link: never.
         return refuse(
-          `"${relativePath}" already has its own ${name}, so it is not changed here. If it was set up halfway, use "Convert to subdataset" in the Files browser.`
+          `"${relativePath}" already has its own ${name}, so it is not changed here. If it was set up halfway, use "Convert to subdataset" in the Files browser.`,
+          existing.isSymbolicLink() ? 'NEST_REFUSED' : 'NEST_NEEDS_DATALAD'
         )
       }
     }

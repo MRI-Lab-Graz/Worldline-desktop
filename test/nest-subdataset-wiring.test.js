@@ -28,6 +28,11 @@ test('automatic nesting makes one nestSubdataset call per subject, not createSub
   assert.equal(body.split("'save'").length - 1, 1, 'only the parent save is left')
 })
 
-test('"Convert to subdataset" still uses createSubdataset', () => {
-  assert.ok(app.includes("'createSubdataset'"))
+test('"Convert to subdataset" tries nestSubdataset first and uses DataLad only when the folder has its own git files', () => {
+  const start = app.indexOf("event.target.closest('[data-convert-subdataset-path]')")
+  const body = app.slice(start, app.indexOf('\n})\n', start))
+  const nest = body.indexOf("'nestSubdataset'")
+  const fallback = body.indexOf("'NEST_NEEDS_DATALAD'")
+  const legacy = body.indexOf("'createSubdataset'")
+  assert.ok(nest !== -1 && nest < fallback && fallback < legacy, 'nestSubdataset, then the code check, then createSubdataset')
 })

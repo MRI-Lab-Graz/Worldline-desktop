@@ -106,17 +106,18 @@ test('nestSubdataset nests an empty folder', { skip }, async () => {
   assert.equal(result.ok, true, result.stderr)
 })
 
-async function refused(dir, relativePath, extra = {}) {
+async function refused(dir, relativePath, extra = {}, code = 'NEST_REFUSED') {
   const result = await adapter().runCommand('nestSubdataset', { projectPath: dir, relativePath, ...extra })
   assert.equal(result.ok, false)
-  assert.equal(result.userError?.code, 'NEST_REFUSED')
+  assert.equal(result.userError?.code, code)
   return result
 }
 
 test('nestSubdataset refuses a folder that already has .git and writes nothing', { skip }, async () => {
   const dir = await project()
   git(join(dir, 'sub-01'), 'init', '-q')
-  await refused(dir, 'sub-01')
+  // A folder with its own files is the one case DataLad is still used for ("Convert to subdataset" falls back on this code).
+  await refused(dir, 'sub-01', {}, 'NEST_NEEDS_DATALAD')
   await assert.rejects(lstat(join(dir, 'sub-01', '.gitattributes')))
 })
 
@@ -161,7 +162,7 @@ test('nestSubdataset refuses a .gitattributes link and leaves the file it points
 test('nestSubdataset refuses a folder that already has its own .gitattributes and keeps it', { skip }, async () => {
   const dir = await project()
   await writeFile(join(dir, 'sub-01', '.gitattributes'), '*.nii annex.largefiles=anything\n')
-  await refused(dir, 'sub-01')
+  await refused(dir, 'sub-01', {}, 'NEST_NEEDS_DATALAD')
   assert.equal(await readFile(join(dir, 'sub-01', '.gitattributes'), 'utf8'), '*.nii annex.largefiles=anything\n')
 })
 

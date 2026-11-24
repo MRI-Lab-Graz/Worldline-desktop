@@ -87,6 +87,7 @@ export const COMMAND_SCHEMAS = Object.freeze({
     required: ['projectPath', 'relativePath'],
     optional: ['procedure', 'force']
   },
+  nestSubdatasets: { required: ['projectPath', 'relativePaths'], optional: ['procedure'] },
   nestSubdataset: {
     required: ['projectPath', 'relativePath'],
     optional: ['procedure']
@@ -115,6 +116,7 @@ const LEADING_DASH_FIELDS = Object.freeze({
   createProject: ['procedure'],
   createSubdataset: ['procedure'],
   nestSubdataset: ['procedure'],
+  nestSubdatasets: ['procedure'],
   disconnectRemote: ['remoteName'],
   run: ['message', 'command']
 })
@@ -125,6 +127,7 @@ const LEADING_DASH_FIELDS = Object.freeze({
 
 const RUN_MAX_COMMAND_LENGTH = 10_000
 const RUN_MAX_PATHS = 200
+const NEST_MAX_SUBJECTS = 1000
 
 // Paths DataLad is told about: relative, inside the project (DataLad itself accepts "../x" silently).
 function isProjectRelativePath(value) {
@@ -200,7 +203,7 @@ export function assertCommandRequest(commandName, request, { platform = process.
   // Text fields must be text: spawn() turns an array into a string, and the main process compares strings.
   for (const field of [...schema.required, ...schema.optional]) {
     const value = request[field]
-    if (field === 'paths' || field === 'tagNames' || field === 'inputs' || field === 'outputs' || value === undefined || value === null) {
+    if (field === 'paths' || field === 'relativePaths' || field === 'tagNames' || field === 'inputs' || field === 'outputs' || value === undefined || value === null) {
       continue
     }
     if (field === 'force' ? typeof value !== 'boolean' : typeof value !== 'string') {
@@ -236,6 +239,13 @@ export function assertCommandRequest(commandName, request, { platform = process.
   if (commandName === 'pushTags') {
     if (!Array.isArray(request.tagNames) || request.tagNames.length === 0 || request.tagNames.some((n) => typeof n !== 'string')) {
       throw new Error('Invalid request for pushTags: tagNames must be a non-empty array of strings')
+    }
+  }
+
+  if (commandName === 'nestSubdatasets') {
+    const list = request.relativePaths
+    if (!Array.isArray(list) || list.length === 0 || list.length > NEST_MAX_SUBJECTS || list.some((n) => typeof n !== 'string' || !n.trim())) {
+      throw new Error(`Invalid request for nestSubdatasets: relativePaths must be 1 to ${NEST_MAX_SUBJECTS} folder names`)
     }
   }
 

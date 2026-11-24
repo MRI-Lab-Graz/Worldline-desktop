@@ -41,6 +41,7 @@ import {
   formatActivityLine,
   formatDurationLine,
   formatProgress,
+  parseNestProgress,
   renderRunningRows,
   shouldShowUserErrorMessage,
   shouldStopSequence
@@ -2561,6 +2562,10 @@ function untrackRun(runId) {
 // Activity arrives several times a second: update just the text node so the
 // Cancel button keeps focus instead of being re-rendered under the user.
 api.onCommandActivity(({ runId, line }) => {
+  const nested = parseNestProgress(line)
+  if (nested && !elements.globalBusyOverlay.hidden) {
+    updateGlobalBusyOverlay(`Nesting folders… (${nested.done} of ${nested.total})`, nested.done, nested.total)
+  }
   const run = state.activeRuns.get(runId)
   if (!run) {
     return

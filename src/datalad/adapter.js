@@ -17,6 +17,16 @@ import {
 
 const NEST_WORKERS = 4
 
+// One plain folder name directly in the project. Never a name git or DataLad use themselves: ".git." and "git~1" reach
+// .git on Windows.
+function isPlainNestName(relativePath) {
+  const base = String(relativePath).replace(/[. ]+$/, '').toLowerCase()
+  return !(
+    !isSafeRelativeSubdatasetPath(relativePath) || /[\u0000-\u001f\\/]/.test(relativePath) ||
+    base === '.git' || base === '.datalad' || /^git~\d+$/.test(base)
+  )
+}
+
 export const CURATED_COMMANDS = new Set([
   'cloneInstall',
   'createProject',
@@ -475,15 +485,22 @@ export class DataLadAdapter {
     const total = relativePaths.length
     for (const relativePath of relativePaths) {
       if (runOptions.signal?.aborted) break
+      // Refused below; never touch the parent for a name that cannot be nested or is not a real folder.
+      if (!isPlainNestName(relativePath) || !(await lstat(join(projectPath, relativePath)).catch(() => null))?.isDirectory()) continue
       await this.untrackPath(projectPath, relativePath).catch(() => {}) // as before: the per-subject nest decides
     }
+    // Only the "Nested k of N" lines go to the activity line: git's own output from four folders would bury the count.
+    const quiet = { ...runOptions, onOutput: undefined }
     const subjects = relativePaths.map((relativePath) => ({ relativePath, ok: false, message: 'Not started (stopped).' }))
     let next = 0
     let finished = 0
     const worker = async () => {
       while (!runOptions.signal?.aborted && next < total) {
         const index = next++
-        const result = await this.#nestSubdataset({ projectPath, relativePath: relativePaths[index], procedure }, runOptions)
+        // An exception (a locked file on Windows, say) is this subject's failure, never the batch's.
+        const result = await this.#nestSubdataset({ projectPath, relativePath: relativePaths[index], procedure }, quiet).catch((error) => ({
+          ok: false, stderr: String(error?.message ?? error)
+        }))
         subjects[index] = { relativePath: relativePaths[index], ok: result.ok, message: result.ok ? '' : result.userError?.message || result.stderr || '' }
         runOptions.onOutput?.(`Nested ${++finished} of ${total}: ${relativePaths[index]}`)
       }
@@ -517,11 +534,7 @@ export class DataLadAdapter {
       )
     // One plain folder name directly in the project (auto-nest only ever sends those). Never a name git or DataLad use
     // themselves: ".git." and "git~1" reach .git on Windows.
-    const base = String(relativePath).replace(/[. ]+$/, '').toLowerCase()
-    if (
-      !isSafeRelativeSubdatasetPath(relativePath) || /[\u0000-\u001f\\/]/.test(relativePath) ||
-      base === '.git' || base === '.datalad' || /^git~\d+$/.test(base)
-    ) {
+    if (!isPlainNestName(relativePath)) {
       return refuse(`"${relativePath}" is not a folder name this can nest.`)
     }
     if (procedure !== undefined && procedure !== 'text2git') {
@@ -599,7 +612,9 @@ export class DataLadAdapter {
     result = await this.#withGitmodulesLock(async () => {
       let last
       for (const [key, value] of [['path', relativePath], ['url', `./${relativePath}`], ['datalad-id', id]]) {
-        last = await git(projectPath, 'config', '-f', '.gitmodules', `submodule.${relativePath}.${key}`, value)
+        // No Stop signal here: once the content is in the annex, registering takes a moment and a half-written entry
+        // (or none) would leave a folder that auto-nesting then refuses.
+        last = await this.runner.run('git', ['-C', projectPath, 'config', '-f', '.gitmodules', `submodule.${relativePath}.${key}`, value], { ...runOptions, signal: undefined })
         if (last.failed) return last
       }
       return last

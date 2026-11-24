@@ -142,3 +142,9 @@ test('nestSubdatasets takes a list of folder names and refuses anything else', (
   }
   assert.throws(() => assertCommandRequest('nestSubdatasets', { ...ok, procedure: '-x' }), /cannot start with -/)
 })
+
+test('nestSubdatasets refuses a name listed twice, also when only case, a trailing dot or a space differs (the same folder on Windows)', () => {
+  for (const relativePaths of [['sub-01', 'sub-01'], ['sub-01', 'SUB-01'], ['sub-01', 'sub-01.'], ['sub-01', 'sub-01 ']]) {
+    assert.throws(() => assertCommandRequest('nestSubdatasets', { projectPath: '/p', relativePaths }), /nestSubdatasets.*twice/, JSON.stringify(relativePaths))
+  }
+})

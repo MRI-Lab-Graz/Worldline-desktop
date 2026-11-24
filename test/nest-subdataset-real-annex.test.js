@@ -353,3 +353,46 @@ test('subjects the parent tracks and subjects it does not both end up nested and
   assert.equal(new Set(registered(dir)).size, 3) // DataLad's save writes the entries a second time (same values; not new in this change)
   assert.equal(git(dir, 'status', '--porcelain').trim(), '', describe(dir))
 })
+
+test('an exception in one subject becomes that subject\'s failure; the others finish and the result comes back', { skip }, async () => {
+  const dir = await projectWith(6)
+  const real = new ProcessRunner()
+  const runner = { run: (command, args, options) => {
+    if (args[1]?.endsWith('sub-02') && args.includes('annex') && args.includes('init')) throw new Error('EBUSY: resource busy')
+    return real.run(command, args, options)
+  } }
+  const result = await batch(dir, names(6), {}, runner)
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.subjects.filter((s) => !s.ok).map((s) => s.relativePath), ['sub-02'])
+  assert.match(result.subjects[1].message, /EBUSY/)
+  assert.equal(registered(dir).length, 5)
+})
+
+test('names that cannot be nested are never untracked in the parent', { skip }, async () => {
+  const dir = await projectWith(1)
+  await writeFile(join(dir, '.gitattributes'), '* annex.backend=MD5E\n')
+  git(dir, 'add', '.gitattributes')
+  git(dir, 'commit', '-q', '-m', 'attrs')
+  const before = git(dir, 'log', '--oneline').trim().split('\n').length
+  const result = await batch(dir, ['.gitattributes', '.datalad', 'a/b', 'sub-01'])
+  assert.deepEqual(result.subjects.map((s) => s.ok), [false, false, false, true])
+  assert.ok(git(dir, 'ls-files', '.gitattributes').includes('.gitattributes'), 'the parent still tracks its own .gitattributes')
+  assert.equal(git(dir, 'log', '--oneline').trim().split('\n').length, before + 1, 'only sub-01 was untracked (one commit)')
+})
+
+test('a Stop that lands while a subject is being registered still finishes that subject\'s .gitmodules entry', { skip }, async () => {
+  const dir = await projectWith(4)
+  const controller = new AbortController()
+  const real = new ProcessRunner()
+  let caught = null
+  const runner = { run: (command, args, options) => {
+    const key = args.includes('config') && args.includes('.gitmodules') && /^submodule\.(.+)\.path$/.exec(args.at(-2))
+    if (!caught && key) { caught = key[1]; controller.abort() }
+    return real.run(command, args, options)
+  } }
+  const result = await batch(dir, names(4), { signal: controller.signal }, runner)
+  assert.equal(result.cancelled, true)
+  assert.ok(caught, 'the test must have stopped during a registration')
+  const keys = git(dir, 'config', '-f', '.gitmodules', '--name-only', '--get-regexp', `^submodule\\.${caught}\\.`).trim().split('\n').map((name) => name.split('.').pop())
+  assert.deepEqual(keys.sort(), ['datalad-id', 'path', 'url'], `${caught} must have path, url and datalad-id`)
+})

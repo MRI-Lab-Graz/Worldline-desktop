@@ -247,6 +247,11 @@ export function assertCommandRequest(commandName, request, { platform = process.
     if (!Array.isArray(list) || list.length === 0 || list.length > NEST_MAX_SUBJECTS || list.some((n) => typeof n !== 'string' || !n.trim())) {
       throw new Error(`Invalid request for nestSubdatasets: relativePaths must be 1 to ${NEST_MAX_SUBJECTS} folder names`)
     }
+    // The same folder twice would be nested by two workers at once. Windows folds case and drops trailing dots and spaces.
+    const folded = list.map((name) => name.replace(/[. ]+$/, '').toLowerCase())
+    if (new Set(folded).size !== folded.length) {
+      throw new Error('Invalid request for nestSubdatasets: a folder is listed twice')
+    }
   }
 
   if (commandName === 'run') {

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { shouldBlockForIdentity } from '../src/gui/renderer/identity-guard.js'
+import { parseNestProgress } from '../src/gui/renderer/run-activity.js'
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const main = read('src/gui/main.js')
@@ -45,4 +46,11 @@ test('"Convert to subdataset" tries nestSubdataset first and uses DataLad only w
   const fallback = body.indexOf("'NEST_NEEDS_DATALAD'")
   const legacy = body.indexOf("'createSubdataset'")
   assert.ok(nest !== -1 && nest < fallback && fallback < legacy, 'nestSubdataset, then the code check, then createSubdataset')
+})
+
+test('the overlay gets its count from the "Nested k of N" lines of the batch', () => {
+  assert.deepEqual(parseNestProgress('Nested 3 of 16: sub-03'), { done: 3, total: 16 })
+  assert.equal(parseNestProgress('init (ok)'), null)
+  assert.equal(parseNestProgress('Nested x of y'), null)
+  assert.match(app, /parseNestProgress\(/)
 })

@@ -119,3 +119,68 @@ test('nestSubdataset refuses a path that leaves the project, a bad procedure and
   await refused(dir, 'sub-77')
   await assert.rejects(lstat(join(dir, 'sub-01', '.gitattributes')))
 })
+
+// ---- review fixes: nothing the folder ships may redirect or survive our writes ----
+const noLinks = skip || process.platform === 'win32' && 'symlinks need rights on Windows'
+
+test('nestSubdataset refuses a .datalad link and leaves the file it points to alone', { skip: noLinks }, async () => {
+  const dir = await project()
+  const elsewhere = await mkdtemp(join(tmpdir(), 'dlad-nest-elsewhere-'))
+  await writeFile(join(elsewhere, 'config'), 'PRECIOUS')
+  await symlink(elsewhere, join(dir, 'sub-01', '.datalad'))
+  await refused(dir, 'sub-01')
+  assert.equal(await readFile(join(elsewhere, 'config'), 'utf8'), 'PRECIOUS')
+  await assert.rejects(lstat(join(dir, 'sub-01', '.git')))
+})
+
+test('nestSubdataset refuses a .gitattributes link and leaves the file it points to alone', { skip: noLinks }, async () => {
+  const dir = await project()
+  const elsewhere = await mkdtemp(join(tmpdir(), 'dlad-nest-elsewhere-'))
+  await writeFile(join(elsewhere, 'bashrc'), 'PRECIOUS')
+  await symlink(join(elsewhere, 'bashrc'), join(dir, 'sub-01', '.gitattributes'))
+  await refused(dir, 'sub-01')
+  assert.equal(await readFile(join(elsewhere, 'bashrc'), 'utf8'), 'PRECIOUS')
+})
+
+test('nestSubdataset refuses a folder that already has its own .gitattributes and keeps it', { skip }, async () => {
+  const dir = await project()
+  await writeFile(join(dir, 'sub-01', '.gitattributes'), '*.nii annex.largefiles=anything\n')
+  await refused(dir, 'sub-01')
+  assert.equal(await readFile(join(dir, 'sub-01', '.gitattributes'), 'utf8'), '*.nii annex.largefiles=anything\n')
+})
+
+test('nestSubdataset accepts one plain folder name only: never .git, .datalad, a nested or backslashed path', { skip }, async () => {
+  const dir = await project()
+  const before = git(dir, 'rev-parse', 'HEAD')
+  for (const name of ['.git', '.GIT', '.git.', '.datalad', 'git~1', 'sub-01/anat', 'sub-01\\anat']) {
+    await refused(dir, name)
+  }
+  assert.equal(git(dir, 'rev-parse', 'HEAD'), before)
+  assert.equal(git(dir, 'fsck', '--no-progress').includes('error'), false)
+  await assert.rejects(lstat(join(dir, '.gitmodules')))
+})
+
+// A runner that fails one chosen git call, to leave a run half done.
+const failing = (failWhen) => {
+  const real = new ProcessRunner()
+  return { run: async (command, args, options) => (failWhen(args) ? { command, args, exitCode: 1, stdout: '', stderr: 'boom', failed: true } : real.run(command, args, options)) }
+}
+
+test('a failure before any content is added removes what nestSubdataset created, so a retry works', { skip }, async () => {
+  const dir = await project()
+  const broken = new DataLadAdapter({ runner: failing((args) => args.includes('annex') && args.includes('init')) })
+  assert.equal((await broken.runCommand('nestSubdataset', { projectPath: dir, relativePath: 'sub-01' })).ok, false)
+  for (const name of ['.git', '.datalad', '.gitattributes']) await assert.rejects(lstat(join(dir, 'sub-01', name)), name)
+  assert.equal((await adapter().runCommand('nestSubdataset', { projectPath: dir, relativePath: 'sub-01' })).ok, true)
+})
+
+test('a failure after content was moved into the annex keeps the repository, so no file is lost', { skip }, async () => {
+  const dir = await project()
+  let added = false
+  const broken = new DataLadAdapter({
+    runner: failing((args) => { if (args.includes('add') && args.includes('annex')) added = true; return added && args.includes('commit') })
+  })
+  assert.equal((await broken.runCommand('nestSubdataset', { projectPath: dir, relativePath: 'sub-01' })).ok, false)
+  await lstat(join(dir, 'sub-01', '.git'))
+  assert.equal(await readFile(join(dir, 'sub-01', 'func', 'events.tsv'), 'utf8'), 'onset\tduration\n1\t2\n')
+})

@@ -472,22 +472,30 @@ export class DataLadAdapter {
         { command: 'git', args: [], exitCode: 1, stdout: '', stderr: message, failed: true },
         { code: 'NEST_REFUSED', title: 'Could not nest this folder', message, technicalDetails: '' }
       )
-    if (!isSafeRelativeSubdatasetPath(relativePath) || /[\u0000-\u001f]/.test(relativePath)) {
-      return refuse(`"${relativePath}" is not a folder inside this project.`)
+    // One plain folder name directly in the project (auto-nest only ever sends those). Never a name git or DataLad use
+    // themselves: ".git." and "git~1" reach .git on Windows.
+    const base = String(relativePath).replace(/[. ]+$/, '').toLowerCase()
+    if (
+      !isSafeRelativeSubdatasetPath(relativePath) || /[\u0000-\u001f\\/]/.test(relativePath) ||
+      base === '.git' || base === '.datalad' || /^git~\d+$/.test(base)
+    ) {
+      return refuse(`"${relativePath}" is not a folder name this can nest.`)
     }
     if (procedure !== undefined && procedure !== 'text2git') {
       return refuse('Only the BIDS setting (text2git) or none is supported here.')
     }
-    // Every folder on the way must be a real directory: a link could lead the new repository out of the project.
-    let folder = projectPath
-    for (const segment of relativePath.split(/[\\/]+/)) {
-      folder = join(folder, segment)
-      if (!(await lstat(folder).catch(() => null))?.isDirectory()) {
-        return refuse(`"${relativePath}" is not a plain folder (a missing folder or a link cannot be nested).`)
-      }
+    // A real folder, not a link; and none of the three names we write may exist already: a link there would send our
+    // write to another place, and a file of the folder's own would be overwritten (DataLad appends to it; we refuse).
+    const folder = join(projectPath, relativePath)
+    if (!(await lstat(folder).catch(() => null))?.isDirectory()) {
+      return refuse(`"${relativePath}" is not a plain folder (a missing folder or a link cannot be nested).`)
     }
-    if (await lstat(join(folder, '.git')).catch(() => null)) {
-      return refuse(`"${relativePath}" already has its own Git history, so it is not changed here.`)
+    for (const name of ['.git', '.datalad', '.gitattributes']) {
+      if (await lstat(join(folder, name)).catch(() => null)) {
+        return refuse(
+          `"${relativePath}" already has its own ${name}, so it is not changed here. If it was set up halfway, use "Convert to subdataset" in the Files browser.`
+        )
+      }
     }
 
     const git = (cwd, ...args) => this.runner.run('git', ['-C', cwd, ...args], runOptions)
@@ -498,22 +506,36 @@ export class DataLadAdapter {
       attributes.push('* annex.largefiles=((mimeencoding=binary)and(largerthan=0))')
     }
 
+    // Until content moves into the annex, everything here was created by this call (the checks above proved none of it
+    // existed), so a failure or a Stop removes it and a retry starts clean. After that the files live in
+    // .git/annex/objects: nothing is removed, or they would be lost.
+    const undo = () => Promise.all(['.git', '.datalad', '.gitattributes'].map((name) => rm(join(folder, name), { recursive: true, force: true })))
+    const failUndoing = async (result) => {
+      await undo()
+      return fail(result)
+    }
     let result = await git(folder, 'init', '-q', '-b', 'main')
     if (!result.failed) result = await git(folder, 'annex', 'init')
-    if (result.failed) return fail(result)
-    await mkdir(join(folder, '.datalad'), { recursive: true })
-    await writeFile(join(folder, '.gitattributes'), `${attributes.join('\n')}\n`)
-    await writeFile(join(folder, '.datalad', 'config'), `[datalad "dataset"]\n\tid = ${id}\n`)
-    await writeFile(join(folder, '.datalad', '.gitattributes'), 'config annex.largefiles=nothing\n')
-    const steps = [
-      ['add', '--', '.datalad', '.gitattributes'],
-      ['commit', '-q', '-m', '[DATALAD] new dataset'],
-      ['annex', 'add', '--', '.']
-    ]
-    for (const args of steps) {
-      result = await git(folder, ...args)
-      if (result.failed) return fail(result)
+    if (result.failed) return failUndoing(result)
+    try {
+      await mkdir(join(folder, '.datalad')) // fails if it exists (not recursive): never follows a link there
+      for (const [name, text] of [
+        ['.gitattributes', `${attributes.join('\n')}\n`],
+        ['.datalad/config', `[datalad "dataset"]\n\tid = ${id}\n`],
+        ['.datalad/.gitattributes', 'config annex.largefiles=nothing\n']
+      ]) {
+        await writeFile(join(folder, name), text, { flag: 'wx' })
+      }
+    } catch (error) {
+      await undo()
+      return refuse(`"${relativePath}" could not be set up (${error.code ?? error.message}).`)
     }
+    for (const args of [['add', '--', '.datalad', '.gitattributes'], ['commit', '-q', '-m', '[DATALAD] new dataset']]) {
+      result = await git(folder, ...args)
+      if (result.failed) return failUndoing(result)
+    }
+    result = await git(folder, 'annex', 'add', '--', '.')
+    if (result.failed) return fail(result)
     const pending = await git(folder, 'status', '--porcelain')
     if (pending.failed) return fail(pending)
     if (pending.stdout.trim()) {

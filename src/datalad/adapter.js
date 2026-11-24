@@ -465,6 +465,14 @@ export class DataLadAdapter {
   // start-ups (about 3 s per subject) become about 1 s. It writes the same files DataLad writes (so DataLad treats the
   // folder as its own dataset afterwards) and registers it in the parent's .gitmodules; the parent's own save records it.
   // Fails closed: a symlink, an existing .git or anything unexpected is refused before a single file is written.
+  #gitmodulesQueue = Promise.resolve()
+  // One at a time, in order; a failing step does not block the next.
+  #withGitmodulesLock(step) {
+    const run = this.#gitmodulesQueue.then(step, step)
+    this.#gitmodulesQueue = run.catch(() => {})
+    return run
+  }
+
   async #nestSubdataset({ projectPath, relativePath, procedure }, runOptions) {
     const refuse = (message, code = 'NEST_REFUSED') =>
       buildCommandResult(
@@ -552,10 +560,16 @@ export class DataLadAdapter {
       result = await git(folder, 'annex', 'sync', '--no-push', '--no-pull', '--no-commit', '--no-content')
       if (result.failed) return fail(result)
     }
-    for (const [key, value] of [['path', relativePath], ['url', `./${relativePath}`], ['datalad-id', id]]) {
-      result = await git(projectPath, 'config', '-f', '.gitmodules', `submodule.${relativePath}.${key}`, value)
-      if (result.failed) return fail(result)
-    }
+    // The one step that writes in the parent: git locks .gitmodules, so two at once make the second fail.
+    result = await this.#withGitmodulesLock(async () => {
+      let last
+      for (const [key, value] of [['path', relativePath], ['url', `./${relativePath}`], ['datalad-id', id]]) {
+        last = await git(projectPath, 'config', '-f', '.gitmodules', `submodule.${relativePath}.${key}`, value)
+        if (last.failed) return last
+      }
+      return last
+    })
+    if (result.failed) return fail(result)
     return buildCommandResult('nestSubdataset', result)
   }
 

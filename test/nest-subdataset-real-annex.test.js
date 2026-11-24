@@ -220,3 +220,30 @@ test('on an adjusted branch (Windows, crippled filesystem) the content reaches t
   assert.equal((await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })).ok, true)
   assert.equal(git(dir, 'ls-files', '-s', 'sub-01').split(/\s+/)[1], git(sub, 'rev-parse', 'main').trim(), 'the parent records main')
 })
+
+// A project with several subject folders, one commit.
+async function projectWith(count) {
+  const dir = await mkdtemp(join(tmpdir(), 'dlad-nest-many-'))
+  git(dir, 'init', '-q', '-b', 'main')
+  git(dir, 'annex', 'init', 'test')
+  for (let i = 1; i <= count; i++) {
+    const name = `sub-${String(i).padStart(2, '0')}`
+    await mkdir(join(dir, name, 'anat'), { recursive: true })
+    await writeFile(join(dir, name, 'anat', 'T1w.nii'), `brain data ${name}`)
+    await writeFile(join(dir, name, 'events.tsv'), 'onset\tduration\n1\t2\n')
+  }
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'start')
+  return dir
+}
+const registered = (dir) => git(dir, 'config', '-f', '.gitmodules', '--get-regexp', '\\.path$').trim().split('\n').filter(Boolean)
+
+test('several nestSubdataset calls at once all register in .gitmodules', { skip }, async () => {
+  const dir = await projectWith(8)
+  const one = adapter()
+  const results = await Promise.all(
+    Array.from({ length: 8 }, (_, i) => one.runCommand('nestSubdataset', { projectPath: dir, relativePath: `sub-0${i + 1}`, procedure: 'text2git' }))
+  )
+  for (const result of results) assert.equal(result.ok, true, result.stderr)
+  assert.equal(registered(dir).length, 8)
+})

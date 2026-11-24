@@ -1158,35 +1158,20 @@ async function nestBidsCandidates(projectPath, candidatePaths, button, onProgres
     try {
       await api.untrackPath(projectPath, candidatePath).catch(() => {})
 
-      const createResult = await runWorkflowCommand(
-        'createSubdataset',
-        { projectPath, relativePath: candidatePath, procedure: BIDS_PROCEDURE, force: true },
+      // One git/git-annex command per subject (create + save of its content), about 3x faster than two DataLad calls.
+      const nestResult = await runWorkflowCommand(
+        'nestSubdataset',
+        { projectPath, relativePath: candidatePath, procedure: BIDS_PROCEDURE },
         button,
         `Nesting ${candidatePath}…`,
         { skipBackgroundRefresh: true }
       )
-      steps.push({ label: `Create subdataset: ${candidatePath}`, result: createResult })
-      if (shouldStopSequence(createResult)) {
+      steps.push({ label: `Nest subdataset: ${candidatePath}`, result: nestResult })
+      if (shouldStopSequence(nestResult)) {
         cancelled = true
         break
       }
-      if (!createResult?.ok) {
-        continue
-      }
-
-      const saveResult = await runWorkflowCommand(
-        'save',
-        { projectPath: `${projectPath}/${candidatePath}`, message: `Add existing ${candidatePath} content` },
-        button,
-        `Saving ${candidatePath} contents…`,
-        { skipBackgroundRefresh: true }
-      )
-      steps.push({ label: `Save subdataset content: ${candidatePath}`, result: saveResult })
-      if (shouldStopSequence(saveResult)) {
-        cancelled = true
-        break
-      }
-      if (saveResult?.ok) {
+      if (nestResult?.ok) {
         // So the files this folder still lacks can be downloaded from the project's source later.
         await api.linkSubdatasetSource(projectPath, candidatePath).catch(() => {})
         succeeded.push(candidatePath)

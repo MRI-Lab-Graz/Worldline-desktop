@@ -1,6 +1,14 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4, v0.6.5.
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4, v0.6.5, v0.6.6.
+
+## 0.6.6
+
+Windows: fixes for sending a downloaded project back.
+
+- **Send my saves and Get updates work again after a download.** The app no longer says "No remote is connected yet" for a project that has one.
+- **No more false "unsaved changes" for subject folders**, including right after a save. Real changes still show.
+- **Long lines in result boxes wrap** instead of stretching the whole page sideways.
 
 ## 0.6.5
 

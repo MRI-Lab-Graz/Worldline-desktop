@@ -1,6 +1,14 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4, v0.6.5, v0.6.6, v0.6.7.
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4, v0.6.5, v0.6.6, v0.6.7, v0.6.8.
+
+## 0.6.8
+
+A clearer "What changed" list.
+
+- **BIDS and PRISM projects have no checkboxes any more.** All changes were always saved together there; the list now says so.
+- **Files inside a ticked folder show as ticked.** Untick the folder to choose single files.
+- **File names are shown in full.**
 
 ## 0.6.7
 

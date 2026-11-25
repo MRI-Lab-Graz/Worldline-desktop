@@ -1,6 +1,10 @@
 # Changelog
 
-Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4, v0.6.5, v0.6.6.
+Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.2, v0.5.3, v0.5.4, v0.5.5, v0.6.0-beta.1, v0.6.0-beta.2, v0.6.0-beta.3 (pre-release), v0.6.1, v0.6.2, v0.6.3, v0.6.4, v0.6.5, v0.6.6, v0.6.7.
+
+## 0.6.7
+
+- **The window no longer scrolls sideways.** Long paths, commands, file names and messages wrap, everywhere in the app.
 
 ## 0.6.6
 

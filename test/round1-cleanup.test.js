@@ -158,7 +158,7 @@ test('the shared process runner in main.js is called toolRunner (the console it 
 test('the message suggestion describes everything a PRISM or BIDS save will save, and is not offered during a merge', () => {
   const body = fnBody('function updateSaveButtonState')
   assert.match(body, /const prismMode = /)
-  assert.match(body, /const savesEverything = prismMode === 'gated' \|\| prismMode === 'bids'/)
+  assert.match(body, /const savesEverything = Boolean\(prismMode\)/)
   assert.match(body, /savesEverything \? \(snapshot\?\.files \?\? \[\]\)/)
   assert.match(body, /useSuggestionButton\.hidden = !suggestion \|\| Boolean\(snapshot\?\.mergeInProgress\)/)
 })

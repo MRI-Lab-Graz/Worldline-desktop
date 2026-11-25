@@ -62,8 +62,8 @@ test('a valid project saves, and everything is committed even when the UI desele
   await writeFile(join(projectPath, 'a.txt'), 'a')
   await writeFile(join(projectPath, 'b.txt'), 'b')
   const before = commitCount()
-  // Deselect b.txt in the UI: the gated save must still commit it (the whole project was validated).
-  await app.page.waitForSelector('[data-changed-path="b.txt"]', { timeout: 15_000 })
+  // Deselect b.txt behind the UI's back (its checkbox is hidden here): the gated save must still commit it.
+  await app.page.waitForSelector('[data-changed-path="b.txt"]', { state: 'attached', timeout: 15_000 })
   await app.page.evaluate(() => document.querySelector('[data-changed-path="b.txt"]').click())
   await save('e2e: valid')
   await app.page.waitForFunction(() => document.getElementById('command-output').textContent.includes('Saved'), undefined, { timeout: 60_000 })

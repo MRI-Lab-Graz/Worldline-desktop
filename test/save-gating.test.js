@@ -175,3 +175,8 @@ test('changes make Save usable again, and conflicts and merges keep their own me
   assert.match(computeSaveGating({ hasMessage: true, hasSelection: false, hasConflicts: true, hasChanges: false, statusKnown: true }).guidance.text, /Resolve conflicts/)
   assert.match(computeSaveGating({ hasMessage: true, hasSelection: false, hasConflicts: false, hasChanges: false, statusKnown: true, mergeInProgress: true }).guidance.text, /merge/i)
 })
+
+test('the save that adds project.json saves everything, so it needs no ticked file', () => {
+  const gating = computeSaveGating({ hasMessage: true, hasSelection: false, hasConflicts: false, hasChanges: true, prismMode: 'conversion' })
+  assert.equal(gating.disabled, false)
+})

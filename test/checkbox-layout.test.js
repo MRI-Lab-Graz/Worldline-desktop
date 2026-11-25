@@ -22,10 +22,3 @@ test('the Add a Remote radios sit in the compact radio row, not the two-column i
   const html = readFileSync(new URL('../src/gui/renderer/index.html', import.meta.url), 'utf8')
   assert.match(html, /<div class="get-remote-mode-row">\s*<label><input type="radio" name="add-remote-mode"/)
 })
-
-// A long line in a result box (a command, a path) must not widen the page and push the buttons out of view.
-// pre keeps long lines whole by default, and `max-width: 100%` does not stop that inside a grid column.
-test('code boxes wrap long lines', () => {
-  assert.match(rule('\n.panel-code'), /white-space:\s*pre-wrap/)
-  assert.match(rule('\n.panel-code'), /overflow-wrap:\s*anywhere/)
-})

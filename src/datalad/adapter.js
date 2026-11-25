@@ -27,6 +27,9 @@ function isPlainNestName(relativePath) {
   )
 }
 
+// git-annex's "adjusted/<branch>(unlocked)": what Windows datasets are checked out on.
+const ADJUSTED_BRANCH_PATTERN = /^adjusted\/(.+)\([^)]*\)$/
+
 export const CURATED_COMMANDS = new Set([
   'cloneInstall',
   'createProject',
@@ -851,7 +854,7 @@ export class DataLadAdapter {
       throw new Error('Not on a branch: switch to a branch first.')
     }
     // Windows datasets sit on "adjusted/<branch>(unlocked)"; datalad pushes <branch> itself.
-    const branch = current.replace(/^adjusted\//, '').replace(/\([^)]*\)$/, '')
+    const branch = ADJUSTED_BRANCH_PATTERN.exec(current)?.[1] ?? current
     const upstream = `${remoteName}/${branch}`
     // The checked-out branch drives the app's status (@{u}); on an adjusted branch DataLad looks up the push
     // target on the base branch, so that one needs it too (otherwise a plain Publish finds no target).
@@ -1193,19 +1196,22 @@ export class DataLadAdapter {
     const parsed = await this.#readGitStatus(projectPath)
     const subdatasetPaths = new Set(await this.#readSubdatasetPathsFromGitModules(projectPath))
 
-    const files = await Promise.all(
+    const listed = await Promise.all(
       parsed.files.map(async (file) => {
         if (!subdatasetPaths.has(file.path)) {
           return file
         }
 
-        return {
-          ...file,
-          isSubmodule: true,
-          nestedFiles: await this.#collectSubmoduleStatus(projectPath, file.path)
+        const nestedFiles = await this.#collectSubmoduleStatus(projectPath, file.path)
+        if (await this.#isOnlyAdjusted(projectPath, file, nestedFiles)) {
+          return null
         }
+
+        return { ...file, isSubmodule: true, nestedFiles }
       })
     )
+    const files = listed.filter(Boolean)
+    const dropped = listed.length - files.length
 
     const merge = await this.#readMergeState(projectPath, parsed.conflictCount)
     const withSides = files.map((file) => {
@@ -1216,6 +1222,9 @@ export class DataLadAdapter {
     return {
       projectPath,
       ...parsed,
+      clean: files.length === 0,
+      totalChanged: files.length,
+      unstagedCount: parsed.unstagedCount - dropped,
       files: withSides,
       conflicts: [...merge.unmerged].map(([path, stages]) => ({
         path,
@@ -1265,7 +1274,7 @@ export class DataLadAdapter {
     const parsed = parseGitStatusPorcelain(result.stdout ?? '')
     const nestedSubdatasetPaths = new Set(await this.#readSubdatasetPathsFromGitModules(submodulePath))
 
-    return Promise.all(
+    const listed = await Promise.all(
       parsed.files.map(async (file) => {
         const combinedPath = `${relativeSubdatasetPath}/${file.path}`
 
@@ -1273,14 +1282,39 @@ export class DataLadAdapter {
           return { ...file, path: combinedPath }
         }
 
-        return {
-          ...file,
-          path: combinedPath,
-          isSubmodule: true,
-          nestedFiles: await this.#collectSubmoduleStatus(projectPath, combinedPath)
+        const nestedFiles = await this.#collectSubmoduleStatus(projectPath, combinedPath)
+        if (await this.#isOnlyAdjusted(submodulePath, file, nestedFiles)) {
+          return null
         }
+
+        return { ...file, path: combinedPath, isSubmodule: true, nestedFiles }
       })
     )
+    return listed.filter(Boolean)
+  }
+
+  // On Windows a nested dataset sits on an adjusted branch, one commit of git-annex's own above the version the
+  // project records, so git calls it modified although nothing is to be saved. Only exactly that case counts;
+  // anything unclear stays listed. Plumbing only: `git log` could run programs named in the dataset's settings.
+  async #isOnlyAdjusted(parentPath, file, nestedFiles) {
+    if (file.statusCode !== ' M' || nestedFiles.length > 0) {
+      return false
+    }
+    const git = (...args) => this.runner.run('git', ['-C', ...args])
+    const folder = join(parentPath, file.path)
+    const branch = await git(folder, 'symbolic-ref', '-q', '--short', 'HEAD')
+    if (branch.failed || !ADJUSTED_BRANCH_PATTERN.test(branch.stdout.trim())) {
+      return false
+    }
+    const commit = await git(folder, 'cat-file', 'commit', 'HEAD')
+    const recorded = await git(parentPath, 'rev-parse', `:${file.path}`)
+    if (commit.failed || recorded.failed) {
+      return false
+    }
+    const [headers, ...message] = commit.stdout.split('\n\n')
+    const parents = headers.split('\n').filter((line) => line.startsWith('parent '))
+    return message.join('\n\n').trim() === 'git-annex adjusted branch' &&
+      parents.length === 1 && parents[0] === `parent ${recorded.stdout.trim()}`
   }
 
   async listRecentCommits(projectPath, options = {}) {
@@ -1727,13 +1761,17 @@ export class DataLadAdapter {
   }
 
   async #readSyncStatus(projectPath) {
+    // On an adjusted branch (Windows) the remote belongs to the branch underneath, and so do the saves to send:
+    // the adjusted branch has no upstream after a download, and carries a commit of git-annex's own.
+    const current = this.#firstLine((await this.runner.run('git', ['-C', projectPath, 'branch', '--show-current'])).stdout) ?? ''
+    const base = ADJUSTED_BRANCH_PATTERN.exec(current)?.[1]
     const upstreamResult = await this.runner.run('git', [
       '-C',
       projectPath,
       'rev-parse',
       '--abbrev-ref',
       '--symbolic-full-name',
-      '@{u}'
+      `${base ?? ''}@{u}`
     ])
 
     if (upstreamResult.failed) {
@@ -1750,7 +1788,7 @@ export class DataLadAdapter {
       'rev-list',
       '--left-right',
       '--count',
-      `${upstream}...HEAD`
+      `${upstream}...${base ? `refs/heads/${base}` : 'HEAD'}`
     ])
 
     if (countResult.failed) {

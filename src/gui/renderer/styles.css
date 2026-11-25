@@ -1550,6 +1550,8 @@ select:disabled {
 
 .panel-code {
   margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   font-family: var(--mono);
   font-size: 0.82rem;
   background: #312613;

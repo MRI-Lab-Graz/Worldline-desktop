@@ -218,6 +218,7 @@ const elements = {
   changedFilesRefreshButton: document.getElementById('changed-files-refresh'),
   changedFilesSelectAllButton: document.getElementById('changed-files-select-all'),
   changedFilesSelectNoneButton: document.getElementById('changed-files-select-none'),
+  changedFilesHint: document.getElementById('changed-files-hint'),
   ignoreRulesScopeRoot: document.getElementById('ignore-rules-scope-root'),
   ignoreRulesScopeSelectAllButton: document.getElementById('ignore-rules-scope-select-all'),
   ignoreRulesScopeSelectNoneButton: document.getElementById('ignore-rules-scope-select-none'),
@@ -551,6 +552,7 @@ elements.changedFilesOutput.addEventListener('input', (event) => {
   }
 
   state.hasExplicitChangedSelection = true
+  syncChangedFileChecks()
   updateSaveButtonState()
 })
 
@@ -1267,8 +1269,8 @@ elements.saveProjectButton.addEventListener('click', async () => {
     }
 
     const selectedPaths = gatherSavePaths()
-    // PRISM projects are validated and saved as a whole (the main process ignores the selection).
-    const prismSavesEverything = Boolean(state.rootProjectPrism) && !state.rootProjectPrism.introducesPrism
+    // PRISM and BIDS projects are saved as a whole (the main process ignores the selection).
+    const prismSavesEverything = Boolean(state.rootProjectPrism)
     if (latestStatus.totalChanged > 0 && selectedPaths.length === 0 && !prismSavesEverything) {
       elements.commandOutput.textContent =
         'Select at least one changed file before saving.'
@@ -3678,7 +3680,20 @@ function renderChangedFilesSelection() {
   elements.changedFilesOutput.innerHTML = truncationNote + `<ul class="changed-files-list">${list}</ul>`
   elements.changedFilesSelectAllButton.disabled = false
   elements.changedFilesSelectNoneButton.disabled = false
+  syncChangedFileChecks()
   void refreshOpenDiffs()
+}
+
+// A ticked folder is saved with everything in it, so its files show as ticked too (and cannot be unticked alone).
+function syncChangedFileChecks() {
+  const selected = [...state.selectedChangedPaths]
+  for (const box of elements.changedFilesOutput.querySelectorAll('[data-changed-path]')) {
+    const path = box.dataset.changedPath
+    const covered = selected.some((folder) => path.startsWith(`${folder}/`))
+    box.checked = covered || state.selectedChangedPaths.has(path)
+    box.disabled = covered
+    box.title = covered ? 'Saved with its folder. Untick the folder to choose single files.' : ''
+  }
 }
 
 // Fills one diff container (Home row or History compare entry). Never throws: errors are shown in the container.
@@ -3783,8 +3798,11 @@ function updateSaveButtonState() {
     updateRunGating()
   }
 
-  // PRISM and BIDS projects are validated and saved as a whole, whatever is ticked, so describe all of it.
-  const savesEverything = prismMode === 'gated' || prismMode === 'bids'
+  // PRISM and BIDS projects are saved as a whole, whatever is ticked: offer no choice, and describe all of it.
+  const savesEverything = Boolean(prismMode)
+  elements.savePanel.classList.toggle('saves-everything', savesEverything)
+  elements.changedFilesHint.classList.toggle('save-tip', !savesEverything) // not a tip then: it says what Save does
+  elements.changedFilesHint.textContent = savesEverything ? 'All changes will be saved together.' : 'Choose which changed files this save should include.'
   const selectedFiles = savesEverything ? (snapshot?.files ?? []) : (snapshot?.files ?? []).filter((entry) => state.selectedChangedPaths.has(entry.path))
   const suggestion = suggestMessage(selectedFiles)
   elements.message.placeholder = suggestion || 'Describe what you changed'

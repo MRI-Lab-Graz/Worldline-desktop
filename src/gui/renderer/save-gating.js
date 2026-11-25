@@ -35,7 +35,7 @@ export function computeSaveGating({
       guidance: { text: 'A merge is in progress. Finish or cancel it first.', warning: true }
     }
   }
-  const selected = hasSelection || prismMode === 'gated' || prismMode === 'bids'
+  const selected = hasSelection || Boolean(prismMode) // PRISM and BIDS saves always take everything
   const disabled = hasConflicts || (hasChanges && !selected)
 
   if (hasConflicts) {

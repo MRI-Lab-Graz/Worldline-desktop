@@ -6,6 +6,10 @@
 2. **Usability.** Easy for students and scientists: plain words, few clicks, no jargon.
 3. **Windows first.** The app is mainly used on Windows. Check Windows behaviour (paths, cmd.exe quoting, non-ASCII names, CI Windows job) before macOS/Linux.
 
+## Layout
+
+- Nothing may make the window scroll sideways. Long text wraps, or scrolls inside its own box. `e2e/no-wide-pages.e2e.mjs` checks every element.
+
 ## Workflow
 
 - In every chat, start by using the `superpowers` skills (and `ponytail`, see below).

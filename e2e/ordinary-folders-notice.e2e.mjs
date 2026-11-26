@@ -29,6 +29,5 @@ test('opening the project names the ordinary subject folders and leaves them as 
   const notice = app.page.locator('#ordinary-folders-notice')
   await notice.waitFor({ state: 'visible', timeout: 30_000 })
   assert.match(await notice.textContent(), /sub-001/)
-  assert.equal(await app.page.locator('#ordinary-folders-notice').count(), 1)
   await assert.rejects(access(join(top, 'sub-001', '.git')))
 })

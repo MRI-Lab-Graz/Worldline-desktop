@@ -28,7 +28,7 @@ function isPlainNestName(relativePath) {
 }
 
 // git-annex's "adjusted/<branch>(unlocked)": what Windows datasets are checked out on.
-const ADJUSTED_BRANCH_PATTERN = /^adjusted\/(.+)\([^)]*\)$/
+export const ADJUSTED_BRANCH_PATTERN = /^adjusted\/(.+)\([^)]*\)$/
 
 export const CURATED_COMMANDS = new Set([
   'cloneInstall',
@@ -127,6 +127,22 @@ const NO_COMMITS_PATTERN = /(does not have any commits yet|has no commits yet)/i
 function macPrivatePython() {
   const python = join(MAC_PRIVATE_BIN, 'python3')
   return process.platform === 'darwin' && existsSync(python) ? python : null
+}
+
+// A nested folder without that remote makes `datalad push -r` fail although everything else is sent (it carries on).
+// Returns those folders only when that is the one thing that went wrong; anything unexpected stays a failure.
+function onlyMissingNestedRemote(result, remoteName) {
+  if (!remoteName || result.exitCode !== 1 || result.cancelled || result.timedOut) return null
+  const lines = `${result.stdout}\n${result.stderr}`.split(/\r?\n/)
+  if (lines.some((line) => /^(fatal|error):|\[ERROR\s*\]/i.test(line))) return null
+  const suffix = ` (dataset) [Unknown target sibling '${remoteName}'.]`
+  const folders = []
+  for (const line of lines.filter((entry) => /^\w+\((error|impossible)\):/.test(entry))) {
+    const folder = line.startsWith('publish(error): ') && line.endsWith(suffix) ? line.slice('publish(error): '.length, -suffix.length) : ''
+    if (!folder || folder === '.') return null
+    folders.push(folder)
+  }
+  return folders.length > 0 ? folders : null
 }
 
 export class DataLadAdapter {
@@ -284,7 +300,9 @@ export class DataLadAdapter {
   // sitting there when the project was opened, or are new since the last
   // check. Self-limiting: once everything is nested this returns [], so
   // calling it on every project open/detect is naturally a no-op.
-  async findUnnestedBidsCandidates(projectPath) {
+  // `onlyNew`: only folders the project has never saved (and that hold files and are no repository yet). Converting a
+  // saved folder takes its files out of the project, so that never happens on its own after the first setup.
+  async findUnnestedBidsCandidates(projectPath, { onlyNew = false } = {}) {
     const registered = new Set(await this.#readSubdatasetPathsFromGitModules(projectPath))
 
     let entries
@@ -294,10 +312,21 @@ export class DataLadAdapter {
       return []
     }
 
-    return entries
+    const candidates = entries
       .filter((entry) => entry.isDirectory() && !registered.has(entry.name))
       .filter((entry) => BIDS_SUBJECT_DIR_PATTERN.test(entry.name) || BIDS_TOP_LEVEL_DIR_NAMES.includes(entry.name))
       .map((entry) => entry.name)
+    if (!onlyNew) return candidates
+
+    const fresh = []
+    for (const name of candidates) {
+      if (await fileExists(join(projectPath, name, '.git'))) continue
+      const saved = await this.runner.run('git', ['-C', projectPath, 'ls-files', '--', name])
+      if (saved.failed || saved.stdout.trim()) continue
+      const unsaved = await this.runner.run('git', ['-C', projectPath, 'ls-files', '--others', '--exclude-standard', '--', name])
+      if (!unsaved.failed && unsaved.stdout.trim()) fresh.push(name)
+    }
+    return fresh
   }
 
   // A merge records the other branch's subdataset commits but leaves each checkout where it was; a later Save would
@@ -673,6 +702,13 @@ export class DataLadAdapter {
     // text, which is translated) says which it is.
     if (commandName === 'merge' && (await this.#mergeInProgress(request.projectPath, runOptions))) {
       return { ...buildCommandResult(commandName, { ...result, failed: false }, null, warnings), conflicts: true }
+    }
+
+    const notSent = commandName === 'push' ? onlyMissingNestedRemote(result, request.remoteName) : null
+    if (notSent) {
+      const names = notSent.slice(0, 5).join(', ') + (notSent.length > 5 ? ` and ${notSent.length - 5} more` : '')
+      warnings.push({ message: `Not sent: ${names}. The server has no place for ${notSent.length === 1 ? 'it' : 'them'} yet, so ${notSent.length === 1 ? 'it stays' : 'they stay'} only on this computer. Everything else was sent.` })
+      return { ...buildCommandResult(commandName, { ...result, failed: false }, null, warnings), notSent }
     }
 
     return buildCommandResult(commandName, result, mapCommandError(commandName, result), warnings)

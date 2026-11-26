@@ -41,7 +41,7 @@ test('Save shows a busy state while the command is in flight, then recovers', as
 
   const busy = await app.buttonState('save-project')
   assert.equal(busy.disabled, true)
-  assert.equal(busy.text, 'Working…')
+  assert.equal(busy.text, 'Looking for changes…')
   assert.match(busy.classes, /is-busy/)
 
   await app.page.waitForFunction(

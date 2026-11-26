@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('worldlineDesktop', {
   ensureBidsMarker: (projectPath, metadata) =>
     ipcRenderer.invoke('adapter:ensureBidsMarker', { projectPath, metadata }),
   listDataFiles: (projectPath) => ipcRenderer.invoke('adapter:listDataFiles', projectPath),
-  findUnnestedBidsCandidates: (projectPath) => ipcRenderer.invoke('adapter:findUnnestedBidsCandidates', projectPath),
+  findUnnestedBidsCandidates: (projectPath, options) => ipcRenderer.invoke('adapter:findUnnestedBidsCandidates', projectPath, options),
   untrackPath: (projectPath, relativePath) =>
     ipcRenderer.invoke('adapter:untrackPath', { projectPath, relativePath }),
   linkSubdatasetSource: (projectPath, relativePath) =>
@@ -28,6 +28,11 @@ contextBridge.exposeInMainWorld('worldlineDesktop', {
     const listener = (_event, payload) => callback(payload)
     ipcRenderer.on('command:activity', listener)
     return () => ipcRenderer.removeListener('command:activity', listener)
+  },
+  onCommandStep: (callback) => {
+    const listener = (_event, payload) => callback(payload)
+    ipcRenderer.on('command:step', listener)
+    return () => ipcRenderer.removeListener('command:step', listener)
   },
   onCommandProgress: (callback) => {
     const listener = (_event, payload) => callback(payload)

@@ -78,7 +78,7 @@ const blocked = (code, title, message, extra = {}) => ({
 const unchecked = (technicalDetails, label = 'PRISM') =>
   blocked('PRISM_UNCHECKED', `${label} check could not run`, "Couldn't check your data, so nothing was saved. Try again.", { technicalDetails })
 
-export async function gateSave({ runner, projectPath, validatorBin, checkValidator, signal, onOutput, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+export async function gateSave({ runner, projectPath, validatorBin, checkValidator, signal, onOutput, onValidate, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   let root
   let prism
   let label = 'PRISM'
@@ -109,6 +109,7 @@ export async function gateSave({ runner, projectPath, validatorBin, checkValidat
     )
   }
 
+  onValidate?.()
   const run = await runner.run(validatorBin, validatorArgs(root, prism), { signal, onOutput, timeoutMs })
   if (run.cancelled) return unchecked('Cancelled.', label)
 

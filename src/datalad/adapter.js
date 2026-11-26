@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { lstat, mkdir, open, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
-import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import { formatEnvironmentDiagnostics } from './diagnostics.js'
 import { mapCommandError, MERGE_PREFLIGHT_ERRORS } from './errors.js'
 import { parseSshAddress } from '../gui/ssh-browse.js'
+import { localPath } from '../gui/folder-trust.js'
 import { underFavorite, wantedOrigin, ensureSshArgs, parseEnsureOutput, explainSshFailure, safeReason } from './subject-remotes.js'
 import { redactUrlCredentials } from './redact.js'
 import { ProcessRunner } from './process-runner.js'
@@ -485,10 +486,10 @@ export class DataLadAdapter {
           sources.push({ name: match[1], uuid: match[2] })
         }
       } else if ((await git(projectPath, 'config', '--type=bool', '--get', `remote.${match[1]}.annex-ignore`)).stdout?.trim() !== 'true') {
-        const url = (await git(projectPath, 'remote', 'get-url', match[1])).stdout?.split(/\r?\n/)[0].trim()
+        const url = await this.#remoteUrl(projectPath, match[1])
         if (url && isCopyableRemoteUrl(url)) {
-          // "host:path" and "scheme://" stay as they are; a relative folder is relative to the project, not the subject.
-          servers.push({ name: match[1], uuid: match[2], url: /^[^/\\]*:/.test(url) ? url : resolve(projectPath, url) })
+          // A relative folder is relative to the project, not the subject; server addresses stay as they are.
+          servers.push({ name: match[1], uuid: match[2], url: localPath(url, projectPath) ?? url })
         }
       }
     }
@@ -2309,10 +2310,11 @@ function isDriftedOrigin(url, project) {
   return !/[:]/.test(url) && !/^[/\\]/.test(url)
 }
 
-// An address that may be written into a second repository: no option look-alike, no helper program ("x::..."), and
+// An address that may be written into a second repository: no option look-alike, no helper program ("x::..."), no
+// "~" (git reads it as the home folder, a relative folder otherwise), no control character such as a second line, and
 // no password or token (it would be stored a second time).
 function isCopyableRemoteUrl(url) {
-  return !url.startsWith('-') && !/^[\w+.-]+::/.test(url) && !/^https?:\/\/[^/]*@/i.test(url) && !/^[\w+.-]+:\/\/[^/@]*:[^/@]*@/.test(url)
+  return !/^[-~]|[\u0000-\u001f\u007f]/.test(url) && !/^[\w+.-]+::/.test(url) && !/^https?:\/\/[^/]*@/i.test(url) && !/^[\w+.-]+:\/\/[^/@]*:[^/@]*@/.test(url)
 }
 
 async function fileExists(path) {

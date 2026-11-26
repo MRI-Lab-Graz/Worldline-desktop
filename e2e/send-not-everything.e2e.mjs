@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { DataLadAdapter } from '../src/datalad/adapter.js'
 import { launchApp } from './electron-driver.mjs'
 import { createTempRoot } from './fixtures.mjs'
 
@@ -20,8 +21,7 @@ test.before(async () => {
   run('git', ['init', '-q', '--bare', join(root, 'server.git')])
   run('git', ['-C', top, 'remote', 'add', 'origin', join(root, 'server.git')])
   run('datalad', ['-C', top, 'push', '--to', 'origin'])
-  const branch = execFileSync('git', ['-C', top, 'symbolic-ref', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
-  if (!branch.startsWith('adjusted/')) run('git', ['-C', top, 'branch', `--set-upstream-to=origin/${branch}`])
+  await new DataLadAdapter().trackRemote(top, 'origin') // as the app does, also on Windows' adjusted branches
   await writeFile(join(top, 'a.txt'), 'a')
   run('datalad', ['-C', top, 'save', '-m', 'a'])
   app = await launchApp({ trustedPaths: [top] })

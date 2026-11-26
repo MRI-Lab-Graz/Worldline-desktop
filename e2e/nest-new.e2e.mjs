@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { DataLadAdapter } from '../src/datalad/adapter.js'
 import { launchApp } from './electron-driver.mjs'
 import { createTempRoot } from './fixtures.mjs'
 
@@ -40,8 +41,7 @@ test.before(async () => {
   run('git', ['-C', server, 'config', 'receive.denyCurrentBranch', 'updateInstead'])
   run('git', ['-C', sent, 'remote', 'add', 'origin', server])
   run('datalad', ['-C', sent, 'push', '--to', 'origin'])
-  const branch = execFileSync('git', ['-C', sent, 'symbolic-ref', '--short', 'HEAD'], { encoding: 'utf8' }).trim()
-  if (!branch.startsWith('adjusted/')) run('git', ['-C', sent, 'branch', `--set-upstream-to=origin/${branch}`]) // Send needs it
+  await new DataLadAdapter().trackRemote(sent, 'origin') // as the app does, also on Windows' adjusted branches
   // Turned into a nested dataset by hand (as "Convert to subdataset" would).
   run('git', ['-C', sent, 'rm', '-r', '-q', '--cached', 'sub-001'])
   run('git', ['-C', sent, 'commit', '-qm', 'untrack'])

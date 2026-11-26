@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { renderInstallScript } from '../scripts/render-install-script.mjs'
 
-// A tag with a hyphen (v0.6.0-beta.3) is a GitHub pre-release, never "latest"; a plain tag (v0.6.8) is the stable release. Source-reading tests normalise CRLF.
+// A tag with a hyphen (v0.6.0-beta.3) is a GitHub pre-release, never "latest"; a plain tag (v0.6.9) is the stable release. Source-reading tests normalise CRLF.
 const read = async (p) => (await readFile(new URL(`../${p}`, import.meta.url), 'utf8')).replace(/\r\n/g, '\n')
 const pkg = JSON.parse(await read('package.json'))
 const lock = JSON.parse(await read('package-lock.json'))
@@ -16,8 +16,8 @@ test('the package version is valid semver and package-lock agrees', () => {
   assert.equal(lock.packages[''].version, pkg.version)
 })
 
-test('this branch is the stable 0.6.8', () => {
-  assert.equal(pkg.version, '0.6.8')
+test('this branch is the stable 0.6.9', () => {
+  assert.equal(pkg.version, '0.6.9')
 })
 
 for (const [name, file] of [['macos-install.sh', 'scripts/macos/macos-install.sh'], ['linux-install.sh', 'scripts/linux/linux-install.sh'], ['windows-install.cmd', 'scripts/windows/windows-install.cmd']]) {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { lstat, mkdir, open, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
-import { basename, isAbsolute, join, relative, sep } from 'node:path'
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { formatEnvironmentDiagnostics } from './diagnostics.js'
 import { mapCommandError, MERGE_PREFLIGHT_ERRORS } from './errors.js'
 import { parseSshAddress } from '../gui/ssh-browse.js'
@@ -462,6 +462,8 @@ export class DataLadAdapter {
   // Only a source the project has enabled and git-annex accepted there (a special remote: it has no URL) and whose
   // recorded settings are identical in the subject is switched on and confirmed; git-annex asks for that confirmation because settings
   // copied from elsewhere could name another server.
+  // A server with a URL (GitLab, GIN, ...) that git-annex has reached from this project is added for downloads only.
+  // Its address comes from the project's own git settings, never from files in the dataset. Nothing contacts it here.
   async linkSubdatasetSource(projectPath, relativePath) {
     if (!isSafeRelativeSubdatasetPath(relativePath)) {
       throw new Error(`Invalid path: ${relativePath}`)
@@ -471,18 +473,26 @@ export class DataLadAdapter {
 
     const keys = await git(projectPath, 'config', '--get-regexp', '^remote\\..+\\.annex-uuid$')
     const sources = []
+    const servers = []
     for (const line of keys.failed ? [] : keys.stdout.split(/\r?\n/)) {
       const match = line.match(/^remote\.(.+)\.annex-uuid (\S+)$/)
       // Names become command arguments: a leading "-" would be read as an option.
-      if (match && /^[\w][\w.-]*$/.test(match[1]) && (await git(projectPath, 'config', '--get', `remote.${match[1]}.url`)).failed) {
+      if (!match || !/^[\w][\w.-]*$/.test(match[1])) continue
+      if ((await git(projectPath, 'config', '--get', `remote.${match[1]}.url`)).failed) {
         // Only a source git-annex accepted in the project itself: the confirmation below must not be the first one.
         const accepted = await git(projectPath, 'config', '--get', `remote.${match[1]}.annex-verified`)
         if (/^(verified|automatic)$/.test(accepted.stdout.trim())) {
           sources.push({ name: match[1], uuid: match[2] })
         }
+      } else if ((await git(projectPath, 'config', '--type=bool', '--get', `remote.${match[1]}.annex-ignore`)).stdout?.trim() !== 'true') {
+        const url = (await git(projectPath, 'remote', 'get-url', match[1])).stdout?.split(/\r?\n/)[0].trim()
+        if (url && isCopyableRemoteUrl(url)) {
+          // "host:path" and "scheme://" stay as they are; a relative folder is relative to the project, not the subject.
+          servers.push({ name: match[1], uuid: match[2], url: /^[^/\\]*:/.test(url) ? url : resolve(projectPath, url) })
+        }
       }
     }
-    if (sources.length === 0) {
+    if (sources.length === 0 && servers.length === 0) {
       return { linked: [] }
     }
 
@@ -502,6 +512,24 @@ export class DataLadAdapter {
       const ask = `${check.stdout}\n${check.stderr}`.match(/verifyremote \S+ --safe (\d+)/)
       if (ask && (await git(sub, 'annex', 'verifyremote', name, '--safe', ask[1])).failed) continue
       linked.push(name)
+    }
+    // The server holds the whole project, so a subject must never send to it: Send pushes subjects by the project's
+    // remote name (hence another name), the push address leads nowhere, and only git-annex's records are fetched.
+    for (const { name, uuid, url } of servers) {
+      const settings = {
+        url,
+        pushurl: '.git/downloads-only',
+        fetch: `+refs/heads/git-annex:refs/remotes/download-only-${name}/git-annex`,
+        tagopt: '--no-tags',
+        'annex-uuid': uuid,
+        'annex-readonly': 'true',
+        'annex-sync': 'false'
+      }
+      let failed = false
+      for (const [key, value] of Object.entries(settings)) {
+        failed ||= (await git(sub, 'config', `remote.download-only-${name}.${key}`, value)).failed
+      }
+      if (!failed) linked.push(name)
     }
     return { linked }
   }
@@ -2279,6 +2307,12 @@ function isDriftedOrigin(url, project) {
     return parsed.host.toLowerCase() === project.host.toLowerCase() && parent(parsed.path) === project.path
   }
   return !/[:]/.test(url) && !/^[/\\]/.test(url)
+}
+
+// An address that may be written into a second repository: no option look-alike, no helper program ("x::..."), and
+// no password or token (it would be stored a second time).
+function isCopyableRemoteUrl(url) {
+  return !url.startsWith('-') && !/^[\w+.-]+::/.test(url) && !/^https?:\/\/[^/]*@/i.test(url) && !/^[\w+.-]+:\/\/[^/@]*:[^/@]*@/.test(url)
 }
 
 async function fileExists(path) {

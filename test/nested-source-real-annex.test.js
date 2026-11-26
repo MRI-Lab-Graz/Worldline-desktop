@@ -3,9 +3,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { DataLadAdapter } from '../src/datalad/adapter.js'
 import { ProcessRunner } from '../src/datalad/process-runner.js'
 
@@ -140,6 +141,29 @@ test('a server address relative to the project still works from inside the subje
   await assertDownloads(await cloneOfServer({ beforeNest: (dir) => git(dir, 'remote', 'set-url', 'origin', '../server') }))
 })
 
+// The trust check resolves a relative address from the real folder, wherever the project was opened from.
+test('a relative address is resolved from the real project folder, not from a link to it', skipServer, async () => {
+  const { adapter, server, dir, sub } = await cloneOfServer({ beforeNest: (dir) => git(dir, 'remote', 'set-url', 'origin', '../server') })
+  const link = join(await mkdtemp(join(tmpdir(), 'dlad-nested-link-')), 'project')
+  await symlink(dir, link, 'junction') // a junction needs no special rights on Windows
+
+  await adapter.linkSubdatasetSource(link, 'sub-01')
+
+  const written = git(sub, 'config', 'remote.download-only-origin.url').trim()
+  assert.equal(await realpath(written), await realpath(server))
+})
+
+// Turning file:// into a plain path breaks "file://C:/..." on Windows, so git gets the address as the project has it.
+test('a file:// server address is given to the subject as written', skipServer, async () => {
+  let address
+  const project = await cloneOfServer({ beforeNest: (dir, server) => {
+    address = pathToFileURL(server).href
+    git(dir, 'remote', 'set-url', 'origin', address)
+  } })
+  assert.equal(git(project.sub, 'config', 'remote.download-only-origin.url').trim(), address)
+  await assertDownloads(project)
+})
+
 // The server holds the whole project: a subject must never send its own history there.
 test('the server is for downloads only: the subject cannot send to it and Update takes nothing from it', skipServer, async () => {
   const { adapter, server, sub } = await cloneOfServer()
@@ -166,7 +190,12 @@ for (const [what, change] of [
   ['needs a helper program', (dir) => git(dir, 'remote', 'set-url', 'origin', 'datalad-annex::https://example.org/study')],
   // git reads "~" as the home folder; resolving it like a relative folder would point inside the project.
   ['is addressed from the home folder', (dir) => git(dir, 'config', 'remote.origin.url', '~/server')],
-  ['has an address over several lines', (dir) => git(dir, 'config', 'remote.origin.url', '../server\nsecond-line')]
+  ['has an address over several lines', (dir) => git(dir, 'config', 'remote.origin.url', '../server\nsecond-line')],
+  // The trust check reads the address as written: a trimmed copy would name a folder it never looked at.
+  ['has a space before its address', (dir) => git(dir, 'config', 'remote.origin.url', ' ./store')],
+  ['has a space after its address', (dir) => git(dir, 'config', 'remote.origin.url', '../server ')],
+  ['has a line break after its address', (dir) => git(dir, 'config', 'remote.origin.url', '../server\n')],
+  ['has a carriage return after its address', (dir) => git(dir, 'config', 'remote.origin.url', '../server\r')]
 ]) {
   test(`a remote that ${what} is not given to the subject`, skipServer, async () => {
     const { sub, linked } = await cloneOfServer({ beforeNest: change })

@@ -486,10 +486,11 @@ export class DataLadAdapter {
           sources.push({ name: match[1], uuid: match[2] })
         }
       } else if ((await git(projectPath, 'config', '--type=bool', '--get', `remote.${match[1]}.annex-ignore`)).stdout?.trim() !== 'true') {
-        const url = await this.#remoteUrl(projectPath, match[1])
-        if (url && isCopyableRemoteUrl(url)) {
+        // Not #remoteUrl, which trims: the trust check reads the address as written, so a padded one is refused.
+        const url = (await git(projectPath, 'remote', 'get-url', match[1])).stdout?.replace(/\n$/, '')
+        if (url && url === url.trim() && isCopyableRemoteUrl(url)) {
           // A relative folder is relative to the project, not the subject; server addresses stay as they are.
-          servers.push({ name: match[1], uuid: match[2], url: localPath(url, projectPath) ?? url })
+          servers.push({ name: match[1], uuid: match[2], url: /^file:/i.test(url) ? url : (localPath(url, await realpath(projectPath)) ?? url) })
         }
       }
     }

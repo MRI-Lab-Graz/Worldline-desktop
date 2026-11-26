@@ -2520,6 +2520,20 @@ api.onFilesChanged(({ projectPath }) => {
   void refreshFileBrowser(state.fileBrowserProject ?? state.rootProjectPath)
 })
 
+// Names subject folders saved outside the app (e.g. by PRISM Studio). Only says so: converting a saved folder can
+// empty it on the server, so that is never done from here.
+async function showOrdinaryFolders(projectPath) {
+  const notice = document.getElementById('ordinary-folders-notice')
+  notice.hidden = true // never the previous project's folders
+  if (!state.rootProjectIsBids || !isBidsAutoNestEnabled()) return
+  const folders = await api.findUnnestedBidsCandidates(projectPath, { savedOnly: true }).catch(() => [])
+  if (folders.length === 0 || state.rootProjectPath !== projectPath) return
+  const one = folders.length === 1
+  const names = folders.slice(0, 5).map(escapeHtml).join(', ') + (folders.length > 5 ? ` and ${folders.length - 5} more` : '')
+  notice.innerHTML = `<strong>${one ? 'One subject folder is' : `${folders.length} subject folders are`} saved as ${one ? 'an ordinary folder' : 'ordinary folders'}:</strong> ${names}. Your files are safe. ${one ? 'It is' : 'They are'} not set up like nested subject folders; ask whoever looks after your server before converting ${one ? 'it' : 'them'}.`
+  notice.hidden = false
+}
+
 async function detectProjectType(projectPath) {
   try {
     const result = await api.detectProject(projectPath)
@@ -2535,6 +2549,7 @@ async function detectProjectType(projectPath) {
     setCurrentProjectHeader(projectPath, result.classification)
     void refreshPrismInspect(projectPath)
     void refreshValidity(projectPath)
+    void showOrdinaryFolders(projectPath)
     rememberRecentProject(projectPath)
     void api.setWatchedProject(projectPath)
     // Best-effort, fire-and-forget: always exclude OS noise files (.DS_Store

@@ -133,3 +133,19 @@ test('a folder that is a link to another repository is never asked (its settings
   assert.notEqual(await emptiedFolderRefusal({ runner: logged, projectPath: root, remoteName: 'origin' }), null)
   assert.deepEqual(asked, [])
 })
+
+test('savedOnly lists subject folders already saved as ordinary folders (e.g. by PRISM Studio)', async () => {
+  const root = await repo()
+  await file(root, 'sub-001/a.tsv')
+  await file(root, 'sub-002/a.tsv')
+  await file(root, 'derivatives/a.tsv') // only subjects get a folder of their own on the server
+  commit(root, 'saved outside the app')
+  await file(root, 'sub-003/a.tsv') // never saved: nested at the next save, not named here
+  await file(root, 'sub-004/a.tsv')
+  git(join(root, 'sub-004'), 'init', '-q')
+  git(join(root, 'sub-004'), 'add', '-A')
+  git(join(root, 'sub-004'), 'commit', '-qm', 'own')
+  git(root, 'add', 'sub-004') // a nested repository the project records, without .gitmodules
+
+  assert.deepEqual((await new DataLadAdapter().findUnnestedBidsCandidates(root, { savedOnly: true })).sort(), ['sub-001', 'sub-002'])
+})

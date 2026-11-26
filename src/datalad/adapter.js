@@ -303,7 +303,7 @@ export class DataLadAdapter {
   // calling it on every project open/detect is naturally a no-op.
   // `onlyNew`: only folders the project has never saved (and that hold files and are no repository yet). Converting a
   // saved folder takes its files out of the project, so that never happens on its own after the first setup.
-  async findUnnestedBidsCandidates(projectPath, { onlyNew = false } = {}) {
+  async findUnnestedBidsCandidates(projectPath, { onlyNew = false, savedOnly = false } = {}) {
     const registered = new Set(await this.#readSubdatasetPathsFromGitModules(projectPath))
 
     let entries
@@ -317,6 +317,14 @@ export class DataLadAdapter {
       .filter((entry) => entry.isDirectory() && !registered.has(entry.name))
       .filter((entry) => BIDS_SUBJECT_DIR_PATTERN.test(entry.name) || BIDS_TOP_LEVEL_DIR_NAMES.includes(entry.name))
       .map((entry) => entry.name)
+    if (savedOnly) {
+      // Subject folders already saved as ordinary files (saved outside the app): a "tree" in the last save; a nested
+      // dataset is recorded as a "commit" there. One git call, however many there are.
+      const saved = await this.runner.run('git', ['-C', projectPath, 'ls-tree', '-z', 'HEAD'])
+      if (saved.failed) return []
+      const trees = new Set(saved.stdout.split('\0').map((entry) => /^\d+ tree [0-9a-f]+\t(.*)$/s.exec(entry)?.[1]))
+      return candidates.filter((name) => name.startsWith('sub-') && trees.has(name))
+    }
     if (!onlyNew) return candidates
 
     const fresh = []

@@ -7,10 +7,12 @@ Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.
 Subject folders: safer nesting. **Update if you use nested subject folders with a lab server:** in earlier versions, opening a project with the Open button could turn already-saved folders into nested datasets, and the next send could then empty them on the server.
 
 - **New subject folders are nested when you save.**
+- **Subject folders saved outside the app** (for example by PRISM Studio) are named when you open the project. They are not changed.
 - **Folders that are already saved are no longer changed by the Open button.**
 - **A send that would empty a folder on the server is refused**, naming the folder.
 - **"Sent, but not everything"** names a nested folder that has no place on the server, instead of reporting the whole send as failed. The "not sent yet" line is refreshed after a send.
 - **Save shows what it is doing:** looking for changes, checking your data, saving. The result of an earlier action is cleared.
+- **Nested subject folders can download their files from the project's git-annex server.**
 
 ## 0.6.8
 

@@ -294,7 +294,10 @@ handle('adapter:ensureBidsMarker', async (_event, payload = {}) => {
 
 handle('adapter:findUnnestedBidsCandidates', async (_event, projectPath, options) => {
   requireAuthorizedRoot(projectPath)
-  return adapter.findUnnestedBidsCandidates(projectPath, { onlyNew: options?.onlyNew === true })
+  return adapter.findUnnestedBidsCandidates(projectPath, {
+    onlyNew: options?.onlyNew === true,
+    savedOnly: options?.savedOnly === true
+  })
 })
 
 handle('adapter:listDataFiles', async (_event, projectPath) => {

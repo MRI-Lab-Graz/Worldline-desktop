@@ -386,3 +386,24 @@ test('interpretReport: a hostile non-string code cannot throw', () => {
   assert.equal(out.verdict, 'invalid')
   assert.equal(out.errors.length, 4)
 })
+
+test('gateSave says when the validator is about to run, and only then', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'prism steps '))
+  await writeFile(join(root, 'project.json'), '{}')
+  const order = []
+  const runner = {
+    async run(command, args) {
+      if (args.includes('rev-parse')) return { exitCode: 0, stdout: `${root}\n`, stderr: '' }
+      if (command === 'git') return { exitCode: 0, stdout: '', stderr: '' }
+      order.push('validator')
+      return { exitCode: 0, stdout: JSON.stringify(validReport), stderr: '' }
+    }
+  }
+  const options = { runner, projectPath: root, validatorBin: 'v', checkValidator: async () => true, onValidate: () => order.push('step') }
+  assert.equal((await gateSave(options)).allow, true)
+  assert.deepEqual(order, ['step', 'validator'])
+
+  order.length = 0
+  await gateSave({ ...options, checkValidator: async () => false })
+  assert.deepEqual(order, [])
+})

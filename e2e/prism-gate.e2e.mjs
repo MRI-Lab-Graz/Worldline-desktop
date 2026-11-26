@@ -65,10 +65,20 @@ test('a valid project saves, and everything is committed even when the UI desele
   // Deselect b.txt behind the UI's back (its checkbox is hidden here): the gated save must still commit it.
   await app.page.waitForSelector('[data-changed-path="b.txt"]', { state: 'attached', timeout: 15_000 })
   await app.page.evaluate(() => document.querySelector('[data-changed-path="b.txt"]').click())
+  await app.page.evaluate(() => {
+    const button = document.getElementById('save-project')
+    window.e2eSteps = []
+    new MutationObserver(() => {
+      const label = button.textContent.trim()
+      if (window.e2eSteps.at(-1) !== label) window.e2eSteps.push(label)
+    }).observe(button, { childList: true, characterData: true, subtree: true })
+  })
   await save('e2e: valid')
   await app.page.waitForFunction(() => document.getElementById('command-output').textContent.includes('Saved'), undefined, { timeout: 60_000 })
   assert.equal(commitCount(), before + 1)
   assert.equal(git('status', '--porcelain').trim(), '')
+  const steps = await app.page.evaluate(() => window.e2eSteps)
+  assert.deepEqual(steps.slice(0, 3), ['Looking for changes…', 'Checking your data…', 'Saving…'])
 })
 
 test('an invalid project is blocked: nothing is committed and the problem is shown', { skip }, async () => {

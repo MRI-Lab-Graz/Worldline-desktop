@@ -645,7 +645,8 @@ elements.detectProjectButton.addEventListener('click', async () => {
 
   setButtonBusy(elements.detectProjectButton, true)
   try {
-    const nestResult = await detectAndMaybeNestBids(projectPath, elements.detectProjectButton)
+    // Opening an existing project never converts folders that are already saved.
+    const nestResult = await detectAndMaybeNestBids(projectPath, elements.detectProjectButton, { onlyNew: true })
     if (nestResult) {
       elements.classificationOutput.innerHTML += renderBidsNestSummary(nestResult, false)
     }
@@ -1107,13 +1108,13 @@ function hideGlobalBusyOverlay() {
 // needs to be fresh; self-limiting since findUnnestedBidsCandidates returns
 // [] once everything is already nested, so calling this on every open/detect
 // is a no-op in the common case.
-async function detectAndMaybeNestBids(projectPath, button) {
+async function detectAndMaybeNestBids(projectPath, button, { onlyNew = false } = {}) {
   await detectProjectType(projectPath)
   if (!state.rootProjectIsBids || !isBidsAutoNestEnabled()) {
     return null
   }
 
-  const candidates = await api.findUnnestedBidsCandidates(projectPath).catch(() => [])
+  const candidates = await api.findUnnestedBidsCandidates(projectPath, { onlyNew }).catch(() => [])
   if (candidates.length === 0) {
     return null
   }
@@ -1253,7 +1254,10 @@ elements.saveProjectButton.addEventListener('click', async () => {
     return
   }
 
-  setButtonBusy(elements.saveProjectButton, true)
+  // An earlier result must not be read as the result of this Save.
+  elements.commandOutput.textContent = 'Save is running…'
+  setLastActionState('Saving…', 'idle')
+  setButtonBusy(elements.saveProjectButton, true, 'Looking for changes…')
   try {
     const latestStatus = await refreshWorkingTreeStatus(projectPath)
     if (!latestStatus) {
@@ -1278,11 +1282,28 @@ elements.saveProjectButton.addEventListener('click', async () => {
       return
     }
 
+    // A subject folder that appeared since the last save is nested first, or it would stay an ordinary folder for good.
+    if (state.rootProjectIsBids && isBidsAutoNestEnabled()) {
+      const found = await api.findUnnestedBidsCandidates(projectPath, { onlyNew: true })
+      const subjects = found.filter((name) => name.startsWith('sub-')) // only subjects get a folder on the server
+      if (subjects.length > 0) {
+        const label = `Setting up ${subjects.length} new subject folder${subjects.length === 1 ? '' : 's'}…`
+        const nested = await runWorkflowCommand(
+          'nestSubdatasets',
+          { projectPath, relativePaths: subjects, procedure: BIDS_PROCEDURE },
+          elements.saveProjectButton,
+          label,
+          { skipBackgroundRefresh: true }
+        )
+        if (!nested?.ok) return // the reason is shown; nothing is saved
+      }
+    }
+
     const saveResult = await runWorkflowCommand('save', {
       projectPath,
       message,
       paths: selectedPaths
-    }, elements.saveProjectButton)
+    }, elements.saveProjectButton, 'Looking for changes…') // the main process says when this step is over
     if (saveResult?.ok) {
       elements.message.value = '' // the next save is a new one, with its own suggestion
       // "Save completed." must not hide a save that left files behind (a gated save ignores the selection).
@@ -1301,6 +1322,8 @@ elements.saveProjectButton.addEventListener('click', async () => {
       }
     }
   } finally {
+    // Stopped before anything ran: never leave "Saving…" standing.
+    if (elements.lastActionState.textContent === 'Saving…') setLastActionState('Save did not run.', 'error')
     setButtonBusy(elements.saveProjectButton, false)
     updateSaveButtonState()
   }
@@ -1382,6 +1405,7 @@ elements.publishProjectButton.addEventListener('click', async () => {
   const result = await runWorkflowCommand('push', { projectPath, remoteName }, elements.publishProjectButton)
   // A failed send keeps its own error line; the server-folder note would hide it.
   if (prepNote && result?.ok === true) setLastActionState(prepNote.text, prepNote.tone)
+  if (result?.notSent) setLastActionState('Sent, but not everything.', 'warning') // matters more than the note
   if (isSourceRefusal('push', result)) {
     // Learn from the refusal (wording only): a network problem or a stop never gets here.
     try {
@@ -2579,6 +2603,12 @@ api.onCommandActivity(({ runId, line }) => {
   }
 })
 
+// Only the Save button follows the steps: other saves (project setup) keep their own label.
+api.onCommandStep(({ runId, step }) => {
+  if (runId !== state.saveStep?.runId) return
+  elements.saveProjectButton.textContent = step === 'checking' ? 'Checking your data…' : state.saveStep.saving
+})
+
 api.onCommandProgress(({ runId, done }) => {
   const run = state.activeRuns.get(runId)
   if (!run) {
@@ -2645,10 +2675,10 @@ async function runWorkflowCommand(commandName, request, button = null, busyLabel
   const runId = createRunId()
   trackRun(runId, actionLabel(commandName), progressTotal)
   const pathCount = Array.isArray(request.paths) ? request.paths.length : 0
-  const busyLabel =
-    busyLabelOverride ??
-    (commandName === 'save' && pathCount > BUSY_LABEL_FILE_COUNT_THRESHOLD ? `Saving ${pathCount} files…` : undefined)
-  setButtonBusy(button, true, busyLabel)
+  if (commandName === 'save' && button === elements.saveProjectButton) {
+    state.saveStep = { runId, saving: pathCount > BUSY_LABEL_FILE_COUNT_THRESHOLD ? `Saving ${pathCount} files…` : 'Saving…' }
+  }
+  setButtonBusy(button, true, busyLabelOverride)
 
   try {
     const result = await api.runCommand(commandName, request, runId)
@@ -2687,12 +2717,15 @@ async function runWorkflowCommand(commandName, request, button = null, busyLabel
 
     if (!result.ok && nextProjectPath && !skipBackgroundRefresh) {
       void refreshWorkingTreeStatus(nextProjectPath)
-      if (result.cancelled) {
+      // A send that failed half-way may still have sent something: the "not sent yet" count must be current.
+      if (result.cancelled || commandName === 'push') {
         void refreshProjectHealth(nextProjectPath, { fresh: true })
       }
     }
 
-    if (result.ok) {
+    if (result.notSent) {
+      setLastActionState('Sent, but not everything.', 'warning')
+    } else if (result.ok) {
       setLastActionState(
         result.warnings?.length
           ? `${actionLabel(commandName)} completed with advisories.`
@@ -4019,6 +4052,7 @@ function buildWorkflowStatusLine(result) {
   }
 
   if (result.commandName === 'push') {
+    if (result.notSent) return 'Sent, but not everything.'
     return 'Send my saves finished.'
   }
 

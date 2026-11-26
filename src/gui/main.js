@@ -8,6 +8,7 @@ import { createEnsureGuard, describeEnvFailure, ensureEnv, envBin, envStatus, re
 import { checkProject, gateSave, inspectProject } from '../datalad/prism-gate.js'
 import { ProcessRunner } from '../datalad/process-runner.js'
 import { pushRefusal } from '../datalad/sourcedata-guard.js'
+import { emptiedFolderRefusal } from '../datalad/nest-guard.js'
 import { assertCommandRequest } from '../datalad/schema.js'
 import { createResultCounter } from '../datalad/result-counter.js'
 import { createProjectWatcher } from './fs-watch.js'
@@ -291,9 +292,9 @@ handle('adapter:ensureBidsMarker', async (_event, payload = {}) => {
   return adapter.ensureBidsMarker(payload.projectPath, payload.metadata)
 })
 
-handle('adapter:findUnnestedBidsCandidates', async (_event, projectPath) => {
+handle('adapter:findUnnestedBidsCandidates', async (_event, projectPath, options) => {
   requireAuthorizedRoot(projectPath)
-  return adapter.findUnnestedBidsCandidates(projectPath)
+  return adapter.findUnnestedBidsCandidates(projectPath, { onlyNew: options?.onlyNew === true })
 })
 
 handle('adapter:listDataFiles', async (_event, projectPath) => {
@@ -412,6 +413,10 @@ handle('adapter:runCommand', async (event, payload) => {
     request = { ...request, force: false } // empty a moment ago: nothing to adopt, and nothing filled in since may be
   }
   if (payload.commandName === 'save') {
+    // Display only: lets the Save button name the step it is on.
+    const step = (name) => {
+      if (!event.sender.isDestroyed()) event.sender.send('command:step', { runId: payload.runId, step: name })
+    }
     const gate = await runWithHandle(event, payload.runId, (runOptions) =>
       validatorUse.track(() =>
         gateSave({
@@ -419,6 +424,7 @@ handle('adapter:runCommand', async (event, payload) => {
           projectPath: request.projectPath,
           validatorBin: envBin(managedEnvDir(), 'prism-validator'),
           checkValidator: async () => (await envStatus({ runner: toolRunner, envDir: managedEnvDir() })).ready,
+          onValidate: () => step('checking'),
           ...runOptions
         })
       )
@@ -426,6 +432,7 @@ handle('adapter:runCommand', async (event, payload) => {
     if (!gate.allow) {
       return gate.result
     }
+    step('saving')
     // The validator checked the whole project, so commit the whole project, whatever the UI selected.
     if (gate.saveAll) {
       request = { ...request, paths: [] }
@@ -435,7 +442,13 @@ handle('adapter:runCommand', async (event, payload) => {
   if (PUSHES.has(payload.commandName)) {
     // Raw data in sourcedata/ goes to the internal lab server only: checked here, before anything is sent.
     const refusal = await pushRefusal({ runner: toolRunner, projectPath: request.projectPath, remoteName: request.remoteName })
-    if (refusal) {
+    let refused = refusal && { code: 'SOURCEDATA_PUBLIC_TARGET', message: refusal }
+    // A folder turned into a nested dataset must not vanish from the server's files.
+    if (!refused && payload.commandName === 'push') {
+      const message = await emptiedFolderRefusal({ runner: toolRunner, projectPath: request.projectPath, remoteName: request.remoteName, beforeContact: recheckTrust })
+      refused = message && { code: 'WOULD_EMPTY_SERVER_FOLDER', message }
+    }
+    if (refused) {
       return {
         ok: false,
         commandName: payload.commandName,
@@ -444,7 +457,7 @@ handle('adapter:runCommand', async (event, payload) => {
         stderr: '',
         failed: true,
         warnings: [],
-        userError: { code: 'SOURCEDATA_PUBLIC_TARGET', title: 'Not sent', message: refusal, technicalDetails: '' }
+        userError: { ...refused, title: 'Not sent', technicalDetails: '' }
       }
     }
   }

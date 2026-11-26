@@ -14,6 +14,8 @@ const run = (command, args) => execFileSync(command, args, { env, stdio: 'ignore
 const adapterFor = (stdout, stderr = '', extra = {}) => new DataLadAdapter({
   runner: { run: async (command, args) => ({ command, args, exitCode: 1, failed: true, stdout, stderr, durationMs: 1, ...extra }) }
 })
+const has = (command, args) => { try { execFileSync(command, args, { stdio: 'ignore' }); return true } catch { return false } }
+const skip = !(has('git', ['annex', 'version']) && has('datalad', ['--version'])) && 'git-annex and datalad are needed'
 const send = (adapter) => adapter.runCommand('push', { projectPath: '/p', remoteName: 'origin' })
 const MISSING = "publish(error): derivatives (dataset) [Unknown target sibling 'origin'.]"
 const OK = 'publish(ok): . (dataset) [refs/heads/main->origin:refs/heads/main [new branch]]'
@@ -45,7 +47,7 @@ test('anything else that goes wrong stays a failed send', async () => {
   }
 })
 
-test('real DataLad: the project is sent and the folder without a server is reported', async () => {
+test('real DataLad: the project is sent and the folder without a server is reported', { skip }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'not sent '))
   const top = join(root, 'top')
   run('datalad', ['create', top])

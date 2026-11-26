@@ -3,14 +3,15 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DataLadAdapter } from '../src/datalad/adapter.js'
 import { ProcessRunner } from '../src/datalad/process-runner.js'
 
 const has = (cmd, args) => { try { execFileSync(cmd, args, { stdio: 'ignore' }); return true } catch { return false } }
-const hasTools = has('git', ['annex', 'version']) && has('datalad', ['--version']) && has('rsync', ['--version'])
+const hasAnnex = has('git', ['annex', 'version']) && has('datalad', ['--version'])
+const hasTools = hasAnnex && has('rsync', ['--version'])
 
 async function projectWithSourceOnlyData() {
   const root = await mkdtemp(join(tmpdir(), 'dlad-nested-source-'))
@@ -90,3 +91,83 @@ test('linkSubdatasetSource rejects a path that leaves the project', async () => 
   const adapter = new DataLadAdapter({ runner: new ProcessRunner() })
   await assert.rejects(adapter.linkSubdatasetSource('/tmp/proj', '../outside'), /Invalid path/)
 })
+
+// A GitLab or GIN git-annex server is an ordinary remote with a URL, not a special remote. A second local repository
+// stands in for it here.
+const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: 'pipe' })
+const skipServer = { skip: !hasAnnex && 'git-annex and datalad are needed' }
+
+async function cloneOfServer({ beforeNest } = {}) {
+  // New repositories made by the commands under test have no local identity.
+  Object.assign(process.env, {
+    GIT_AUTHOR_NAME: 'Ana', GIT_AUTHOR_EMAIL: 'ana@example.org', GIT_COMMITTER_NAME: 'Ana', GIT_COMMITTER_EMAIL: 'ana@example.org'
+  })
+  const root = await mkdtemp(join(tmpdir(), 'dlad-nested-server-'))
+  const server = join(root, 'server')
+  const dir = join(root, 'project')
+  await mkdir(join(server, 'sub-01', 'anat'), { recursive: true })
+  git(server, 'init', '-q', '-b', 'main')
+  git(server, 'config', 'commit.gpgsign', 'false')
+  git(server, 'annex', 'init', 'server')
+  await writeFile(join(server, 'sub-01', 'anat', 'T1w.nii'), 'brain data')
+  git(server, 'annex', 'add', 'sub-01')
+  git(server, 'commit', '-qm', 'data')
+  git(root, 'clone', '-q', server, dir)
+  git(dir, 'config', 'commit.gpgsign', 'false')
+  git(dir, 'annex', 'init', 'laptop')
+  await beforeNest?.(dir, server)
+
+  const adapter = new DataLadAdapter({ runner: new ProcessRunner() })
+  const nested = await adapter.runCommand('nestSubdatasets', { projectPath: dir, relativePaths: ['sub-01'], procedure: 'text2git' })
+  assert.equal(nested.ok, true, JSON.stringify(nested.subjects ?? nested.stderr))
+  const linked = await adapter.linkSubdatasetSource(dir, 'sub-01')
+  return { adapter, server, dir, sub: join(dir, 'sub-01'), linked }
+}
+
+async function assertDownloads({ adapter, sub }) {
+  const get = await adapter.runCommand('get', { projectPath: sub, paths: ['anat/T1w.nii'] })
+  assert.equal(get.ok, true, JSON.stringify(get.userError ?? get.stderr))
+  assert.equal(await readFile(join(sub, 'anat', 'T1w.nii'), 'utf8'), 'brain data')
+}
+
+test('a nested subject can still download from the git-annex server its project was cloned from', skipServer, async () => {
+  const project = await cloneOfServer()
+  assert.deepEqual(project.linked, { linked: ['origin'] })
+  await assertDownloads(project)
+})
+
+test('a server address relative to the project still works from inside the subject', skipServer, async () => {
+  await assertDownloads(await cloneOfServer({ beforeNest: (dir) => git(dir, 'remote', 'set-url', 'origin', '../server') }))
+})
+
+// The server holds the whole project: a subject must never send its own history there.
+test('the server is for downloads only: the subject cannot send to it and Update takes nothing from it', skipServer, async () => {
+  const { adapter, server, sub } = await cloneOfServer()
+  assert.equal(git(sub, 'remote').trim(), 'download-only-origin', 'never "origin": Send pushes nested subjects by that name')
+  const refs = () => git(server, 'for-each-ref', '--exclude=refs/heads/git-annex')
+  const before = { refs: refs(), head: git(sub, 'rev-parse', 'HEAD') }
+
+  assert.throws(() => git(sub, 'push', 'download-only-origin', 'main:refs/heads/from-subject'))
+  await adapter.runCommand('push', { projectPath: sub })
+  await adapter.runCommand('push', { projectPath: sub, remoteName: 'download-only-origin' })
+  git(sub, 'annex', 'sync')
+  assert.equal(refs(), before.refs)
+
+  await adapter.runCommand('update', { projectPath: sub })
+  git(sub, 'fetch', '-q', 'download-only-origin')
+  assert.equal(git(sub, 'rev-parse', 'HEAD'), before.head)
+  assert.equal(git(sub, 'for-each-ref', '--format=%(refname)', 'refs/remotes/download-only-origin').trim(), 'refs/remotes/download-only-origin/git-annex')
+})
+
+for (const [what, change] of [
+  ['git-annex never reached', (dir) => git(dir, 'config', '--unset', 'remote.origin.annex-uuid')],
+  ['git-annex ignores', (dir) => git(dir, 'config', 'remote.origin.annex-ignore', 'true')],
+  ['holds a password in its address', (dir) => git(dir, 'remote', 'set-url', 'origin', 'https://ana:secret@example.org/study.git')],
+  ['needs a helper program', (dir) => git(dir, 'remote', 'set-url', 'origin', 'datalad-annex::https://example.org/study')]
+]) {
+  test(`a remote that ${what} is not given to the subject`, skipServer, async () => {
+    const { sub, linked } = await cloneOfServer({ beforeNest: change })
+    assert.deepEqual(linked, { linked: [] })
+    assert.equal(git(sub, 'remote').trim(), '')
+  })
+}

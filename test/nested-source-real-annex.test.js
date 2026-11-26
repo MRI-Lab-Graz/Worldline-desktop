@@ -163,7 +163,10 @@ for (const [what, change] of [
   ['git-annex never reached', (dir) => git(dir, 'config', '--unset', 'remote.origin.annex-uuid')],
   ['git-annex ignores', (dir) => git(dir, 'config', 'remote.origin.annex-ignore', 'true')],
   ['holds a password in its address', (dir) => git(dir, 'remote', 'set-url', 'origin', 'https://ana:secret@example.org/study.git')],
-  ['needs a helper program', (dir) => git(dir, 'remote', 'set-url', 'origin', 'datalad-annex::https://example.org/study')]
+  ['needs a helper program', (dir) => git(dir, 'remote', 'set-url', 'origin', 'datalad-annex::https://example.org/study')],
+  // git reads "~" as the home folder; resolving it like a relative folder would point inside the project.
+  ['is addressed from the home folder', (dir) => git(dir, 'config', 'remote.origin.url', '~/server')],
+  ['has an address over several lines', (dir) => git(dir, 'config', 'remote.origin.url', '../server\nsecond-line')]
 ]) {
   test(`a remote that ${what} is not given to the subject`, skipServer, async () => {
     const { sub, linked } = await cloneOfServer({ beforeNest: change })

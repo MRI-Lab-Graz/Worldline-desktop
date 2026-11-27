@@ -215,3 +215,9 @@ test('a new subject uses the project\'s branch, so a send shows up on the server
     assert.strictEqual(fs.readFileSync(path.join(s.dir, 'a.tsv'), 'utf8'), 'one')
   }
 })
+
+test('the server script keeps Unix line endings in every checkout, also on Windows', { skip: !have('git', ['--version']) && 'git missing' }, () => {
+  const r = spawnSync('git', ['check-attr', 'eol', '--', 'server/worldline-ensure-subjects'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' })
+  assert.match(r.stdout, /: eol: lf\s*$/)
+  assert.ok(!fs.readFileSync(SCRIPT).includes('\r'))
+})

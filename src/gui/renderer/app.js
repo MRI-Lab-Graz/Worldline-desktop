@@ -645,10 +645,9 @@ elements.detectProjectButton.addEventListener('click', async () => {
 
   setButtonBusy(elements.detectProjectButton, true)
   try {
-    // Opening an existing project never converts folders that are already saved.
-    const nestResult = await detectAndMaybeNestBids(projectPath, elements.detectProjectButton, { onlyNew: true })
+    const nestResult = await detectAndMaybeNestBids(projectPath, elements.detectProjectButton)
     if (nestResult) {
-      elements.classificationOutput.innerHTML += renderBidsNestSummary(nestResult, false)
+      elements.classificationOutput.innerHTML += renderBidsNestSummary(nestResult)
     }
   } finally {
     setButtonBusy(elements.detectProjectButton, false)
@@ -1031,13 +1030,13 @@ async function runCreateNewProject(targetPath) {
   setCurrentProjectHeader(targetPath, 'unknown')
   const nestResult = await detectAndMaybeNestBids(targetPath, elements.createProjectButton)
   if (nestResult) {
-    elements.createProjectOutput.innerHTML += renderBidsNestSummary(nestResult, false)
+    elements.createProjectOutput.innerHTML += renderBidsNestSummary(nestResult)
   }
 }
 
 // Replaces the old standalone Get from Remote action: clones exactly as
-// before (unchanged cloneInstall args/behavior), then runs the same
-// automatic BIDS nesting pass any other project-opening path gets.
+// before (unchanged cloneInstall args/behavior). What was downloaded keeps its layout: nested stays nested, flat stays
+// flat.
 async function runCreateFromRemote(targetPath) {
   const isUrl = elements.getRemoteModeUrlRadio.checked
   const source = isUrl
@@ -1051,8 +1050,7 @@ async function runCreateFromRemote(targetPath) {
     return
   }
 
-  // Same reasoning as runCreateNewProject: detectAndMaybeNestBids's first
-  // call already provides an equivalent, awaited refresh right after.
+  // detectProjectType below already provides an equivalent, awaited refresh.
   const cloneResult = await runWorkflowCommand(
     'cloneInstall',
     { source, targetPath },
@@ -1071,10 +1069,7 @@ async function runCreateFromRemote(targetPath) {
   elements.commandProjectPath.value = targetPath
   elements.projectPath.value = targetPath
   setCurrentProjectHeader(targetPath, 'unknown')
-  const nestResult = await detectAndMaybeNestBids(targetPath, elements.createProjectButton)
-  if (nestResult) {
-    elements.createProjectOutput.innerHTML += renderBidsNestSummary(nestResult, true)
-  }
+  await detectProjectType(targetPath)
 }
 
 // Full-app modal overlay shown for the duration of a multi-step automated
@@ -1108,13 +1103,13 @@ function hideGlobalBusyOverlay() {
 // needs to be fresh; self-limiting since findUnnestedBidsCandidates returns
 // [] once everything is already nested, so calling this on every open/detect
 // is a no-op in the common case.
-async function detectAndMaybeNestBids(projectPath, button, { onlyNew = false } = {}) {
+async function detectAndMaybeNestBids(projectPath, button) {
   await detectProjectType(projectPath)
   if (!state.rootProjectIsBids || !isBidsAutoNestEnabled()) {
     return null
   }
 
-  const candidates = await api.findUnnestedBidsCandidates(projectPath, { onlyNew }).catch(() => [])
+  const candidates = await api.findUnnestedBidsCandidates(projectPath, { onlyNew: true }).catch(() => [])
   if (candidates.length === 0) {
     return null
   }
@@ -1209,20 +1204,12 @@ async function nestBidsCandidates(projectPath, candidatePaths, button, onProgres
   return { steps, succeeded }
 }
 
-function renderBidsNestSummary(nestResult, fromRemote) {
+function renderBidsNestSummary(nestResult) {
   const { steps, succeeded, candidateCount } = nestResult
   const failed = steps.filter((step) => !step.result?.ok)
   const summaryLine =
     `${succeeded.length} of ${candidateCount} folder(s) converted to subdatasets. ` +
-    (failed.length > 0
-      ? 'Any that failed can be retried anytime via "Convert to subdataset" in the Files browser. '
-      : '') +
-    (fromRemote
-      ? "This project's local structure now differs from its origin remote, so a future Get updates " +
-        '(pulling from origin) may not merge cleanly — re-cloning is usually simpler than updating if ' +
-        'you need newer data from the source. If this remote is read-only anyway (e.g. OpenNeuro), you ' +
-        'can remove the link entirely with "Disconnect from this remote" in Setup → This project → Remote.'
-      : '')
+    (failed.length > 0 ? 'Any that failed can be retried anytime via "Convert to subdataset" in the Files browser.' : '')
 
   const stepsHtml = steps
     .map((step) => {
@@ -5146,7 +5133,8 @@ function buildFileTree(rootPath, entries) {
       {
         absolutePath: entry.absolutePath,
         gitStatus: entry.gitStatus ?? null,
-        annexPresent: entry.annexPresent ?? null
+        annexPresent: entry.annexPresent ?? null,
+        saved: entry.saved
       }
     ])
   )
@@ -5166,7 +5154,8 @@ function buildFileTree(rootPath, entries) {
           ? {
               absolutePath: entry.absolutePath,
               gitStatus: entry.gitStatus ?? null,
-              annexPresent: entry.annexPresent ?? null
+              annexPresent: entry.annexPresent ?? null,
+              saved: entry.saved
             }
           : metadataByRelative.get(currentRelativePath) ?? {
               absolutePath: null,
@@ -5181,6 +5170,7 @@ function buildFileTree(rootPath, entries) {
           absolutePath: pathMetadata.absolutePath,
           gitStatus: pathMetadata.gitStatus,
           annexPresent: pathMetadata.annexPresent,
+          saved: pathMetadata.saved,
           locked: isLeaf ? entry.locked : undefined,
           children: new Map()
         })
@@ -5250,7 +5240,7 @@ function renderFileTreeNodes(children, expandAll, depth) {
         // whether it's registered in state.datasets, not its gitStatus.
         const isRegisteredSubdataset = (state.datasets ?? []).some((dataset) => dataset.relativePath === node.name)
         const convertButton =
-          depth === 0 && !isRegisteredSubdataset
+          depth === 0 && !isRegisteredSubdataset && !node.saved
             ? `<button type="button" class="button button-ghost button-mini" data-convert-subdataset-path="${escapeHtml(node.name)}">Convert to subdataset</button>`
             : ''
         return (

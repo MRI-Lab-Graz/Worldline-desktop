@@ -26,6 +26,7 @@ test('onlyNew lists never-saved folders with files, and nothing that is saved, e
   const root = await repo()
   await file(root, 'sub-001/a.tsv')
   await file(root, '.gitignore', 'sub-005/\n')
+  await file(root, '.gitmodules', '[submodule "sub-000"]\n\tpath = sub-000\n\turl = ./sub-000\n') // a nested project
   commit(root, 'saved')
   await file(root, 'sub-001/later.tsv') // a new file in a saved folder does not make the folder new
   await file(root, 'sub-002/a.tsv')
@@ -132,4 +133,37 @@ test('a folder that is a link to another repository is never asked (its settings
   const logged = { run: (command, args, options) => { if (args.includes('ls-remote')) asked.push(args); return runner.run(command, args, options) } }
   assert.notEqual(await emptiedFolderRefusal({ runner: logged, projectPath: root, remoteName: 'origin' }), null)
   assert.deepEqual(asked, [])
+})
+
+// Nesting is decided once per project: a nested project nests its new subjects, a flat one never does, and a folder
+// that is already saved is never converted (its annexed files would become unreadable).
+test('a flat project (saved ordinary subjects, none nested) gets no subject nested', async () => {
+  const root = await repo()
+  await file(root, 'sub-001/a.tsv')
+  commit(root, 'flat')
+  await file(root, 'sub-002/a.tsv')
+  assert.deepEqual(await new DataLadAdapter().findUnnestedBidsCandidates(root, { onlyNew: true }), [])
+})
+
+test('a brand-new project nests its new subjects', async () => {
+  const root = await repo()
+  await file(root, 'README', 'x\n')
+  commit(root, 'start')
+  await file(root, 'sub-001/a.tsv')
+  assert.deepEqual(await new DataLadAdapter().findUnnestedBidsCandidates(root, { onlyNew: true }), ['sub-001'])
+})
+
+test('a folder that is already saved is never converted, alone or in a batch', async () => {
+  const root = await repo()
+  await file(root, 'sub-001/a.tsv')
+  commit(root, 'flat')
+  const adapter = new DataLadAdapter()
+  const one = await adapter.runCommand('nestSubdataset', { projectPath: root, relativePath: 'sub-001' })
+  const batch = await adapter.runCommand('nestSubdatasets', { projectPath: root, relativePaths: ['sub-001'] })
+  assert.equal(one.ok, false)
+  assert.match(one.userError.message, /already saved/)
+  assert.equal(batch.subjects[0].ok, false)
+  assert.equal(git(root, 'ls-files', '--', 'sub-001').trim(), 'sub-001/a.tsv', 'still saved in the project')
+  assert.equal(git(root, 'status', '--porcelain'), '', 'the project is unchanged')
+  await assert.rejects(rename(join(root, 'sub-001', '.git'), join(root, 'x')), 'no repository was made in it')
 })

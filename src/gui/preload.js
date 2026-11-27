@@ -11,8 +11,6 @@ contextBridge.exposeInMainWorld('worldlineDesktop', {
     ipcRenderer.invoke('adapter:ensureBidsMarker', { projectPath, metadata }),
   listDataFiles: (projectPath) => ipcRenderer.invoke('adapter:listDataFiles', projectPath),
   findUnnestedBidsCandidates: (projectPath, options) => ipcRenderer.invoke('adapter:findUnnestedBidsCandidates', projectPath, options),
-  untrackPath: (projectPath, relativePath) =>
-    ipcRenderer.invoke('adapter:untrackPath', { projectPath, relativePath }),
   linkSubdatasetSource: (projectPath, relativePath) =>
     ipcRenderer.invoke('adapter:linkSubdatasetSource', { projectPath, relativePath }),
   resolveConflict: (projectPath, path, side) =>

@@ -132,3 +132,13 @@ test('listDirectory tells a locked file (a link into the annex) from an editable
   assert.equal(entries['locked.dat'].locked, true)
   assert.equal(entries['README.md'].locked, false)
 })
+
+test('listDirectory marks folders that hold saved files, so they are not offered for converting', async () => {
+  const root = await project()
+  await mkdir(join(root, 'new'))
+  await writeFile(join(root, 'new', 'x.txt'), 'x')
+  const entries = byName(await listDirectory({ rootPath: root, run }))
+
+  assert.equal(entries.code.saved, true)
+  assert.equal(entries.new.saved, false)
+})

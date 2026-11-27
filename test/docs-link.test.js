@@ -28,7 +28,7 @@ test('Auto-nest BIDS lives in Setup, not the header', () => {
 test('Auto-nest BIDS explains itself in plain words, linked to the switch', () => {
   assert.match(settingsCard, /id="bids-auto-nest-toggle"[^>]*aria-describedby="bids-auto-nest-help"/)
   const help = settingsCard.match(/<div id="bids-auto-nest-help"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? ''
-  for (const part of ['sub-', 'rawdata', 'derivatives', 'sourcedata', 'saves', 'Convert to subdataset', 'this computer']) {
+  for (const part of ['sub-', 'rawdata', 'derivatives', 'sourcedata', 'saves', 'Convert to subdataset', 'already saved', 'this computer']) {
     assert.ok(help.includes(part), `help mentions ${part}`)
   }
   assert.ok(!/subdatasets?\b(?! )/i.test(help.replace(/Convert to subdataset/g, '')), 'no unexplained jargon: say "nested dataset"')

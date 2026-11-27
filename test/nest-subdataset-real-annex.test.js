@@ -221,7 +221,7 @@ test('on an adjusted branch (Windows, crippled filesystem) the content reaches t
   assert.equal(git(dir, 'ls-files', '-s', 'sub-01').split(/\s+/)[1], git(sub, 'rev-parse', 'main').trim(), 'the parent records main')
 })
 
-// A project with several subject folders, one commit.
+// A project with several new (never saved) subject folders.
 async function projectWith(count) {
   const dir = await mkdtemp(join(tmpdir(), 'dlad-nest-many-'))
   git(dir, 'init', '-q', '-b', 'main')
@@ -232,8 +232,7 @@ async function projectWith(count) {
     await writeFile(join(dir, name, 'anat', 'T1w.nii'), `brain data ${name}`)
     await writeFile(join(dir, name, 'events.tsv'), 'onset\tduration\n1\t2\n')
   }
-  git(dir, 'add', '-A')
-  git(dir, 'commit', '-q', '-m', 'start')
+  git(dir, 'commit', '-q', '--allow-empty', '-m', 'start')
   return dir
 }
 const registered = (dir) => git(dir, 'config', '-f', '.gitmodules', '--get-regexp', '\\.path$').trim().split('\n').filter(Boolean)
@@ -345,17 +344,6 @@ test('several subjects at once on an adjusted branch (Windows) all reach the bra
   }
 })
 
-test('subjects the parent tracks and subjects it does not both end up nested and clean', { skip }, async () => {
-  const dir = await projectWith(2)
-  await mkdir(join(dir, 'sub-03'))
-  await writeFile(join(dir, 'sub-03', 'events.tsv'), 'onset\n1\n')
-  const result = await batch(dir, names(3))
-  assert.equal(result.ok, true, result.stderr)
-  assert.equal((await adapter().runCommand('save', { projectPath: dir, message: 'Nest' })).ok, true)
-  assert.equal(new Set(registered(dir)).size, 3) // DataLad's save writes the entries a second time (same values; not new in this change)
-  if (!onAdjustedBranch(dir)) assert.equal(git(dir, 'status', '--porcelain').trim(), '', describe(dir))
-})
-
 test('an exception in one subject becomes that subject\'s failure; the others finish and the result comes back', { skip }, async () => {
   const dir = await projectWith(6)
   const real = new ProcessRunner()
@@ -370,16 +358,12 @@ test('an exception in one subject becomes that subject\'s failure; the others fi
   assert.equal(registered(dir).length, 5)
 })
 
-test('names that cannot be nested are never untracked in the parent', { skip }, async () => {
+test('names that cannot be nested are refused and the parent is not touched', { skip }, async () => {
   const dir = await projectWith(1)
-  await writeFile(join(dir, '.gitattributes'), '* annex.backend=MD5E\n')
-  git(dir, 'add', '.gitattributes')
-  git(dir, 'commit', '-q', '-m', 'attrs')
-  const before = git(dir, 'log', '--oneline').trim().split('\n').length
+  const head = git(dir, 'rev-parse', 'HEAD')
   const result = await batch(dir, ['.gitattributes', '.datalad', 'a/b', 'sub-01'])
   assert.deepEqual(result.subjects.map((s) => s.ok), [false, false, false, true])
-  assert.ok(git(dir, 'ls-files', '.gitattributes').includes('.gitattributes'), 'the parent still tracks its own .gitattributes')
-  assert.equal(git(dir, 'log', '--oneline').trim().split('\n').length, before + 1, 'only sub-01 was untracked (one commit)')
+  assert.equal(git(dir, 'rev-parse', 'HEAD'), head, 'nesting makes no commit in the parent')
 })
 
 test('a Stop that lands while a subject is being registered still finishes that subject\'s .gitmodules entry', { skip }, async () => {

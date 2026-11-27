@@ -6,8 +6,8 @@ Summarized from git history. Tags: v0.2.1, v0.3.0, v0.4.0, v0.5.0, v0.5.1, v0.5.
 
 Subject folders: safer nesting. **Update if you use nested subject folders with a lab server:** in earlier versions, opening a project with the Open button could turn already-saved folders into nested datasets, and the next send could then empty them on the server.
 
-- **New subject folders are nested when you save.**
-- **Folders that are already saved are no longer changed by the Open button.**
+- **New subject folders are nested when you save**, in nested and brand-new projects. A project whose subjects are ordinary folders stays that way.
+- **Folders that are already saved are never turned into nested datasets**, neither when opening, creating or cloning a project nor with "Convert to subdataset". Converting them could make large files unreadable.
 - **A send that would empty a folder on the server is refused**, naming the folder.
 - **"Sent, but not everything"** names a nested folder that has no place on the server, instead of reporting the whole send as failed. The "not sent yet" line is refreshed after a send.
 - **Save shows what it is doing:** looking for changes, checking your data, saving. The result of an earlier action is cleared.

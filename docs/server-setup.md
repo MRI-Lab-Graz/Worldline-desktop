@@ -14,9 +14,10 @@ The script only **adds**:
 
 - A project must be a direct child of the server root (default `/datalad/mri/MRI-Lab_Repository`) and already contain `.git`.
 - Subject names must look like `sub-...` (letters, digits, `+ . _ -`, at most 63 characters after `sub-`).
-- It creates the missing subject folder (`mkdir` without `-p`), runs `git init` and `git annex init`, and sets `receive.denyCurrentBranch=updateInstead` so a push can arrive.
+- It creates the missing subject folder (`mkdir` without `-p`), runs `git init` and `git annex init`, and sets `receive.denyCurrentBranch=updateInstead` so a push can arrive. The subject uses the same branch as its project.
+- In a group-shared project (see section 4) the new subject is group-shared too, and gets a `push-to-checkout` hook.
 - A subject that already exists is reported as `exists`. Anything else that is already there is `refused`.
-- It never deletes anything, except the single folder it created itself in the same run when one of its own setup steps fails. It never changes permissions or groups.
+- It never deletes anything, except the single folder it created itself in the same run when one of its own setup steps fails. It never changes the permissions or group of anything that already exists.
 
 ## 2. Install
 
@@ -54,7 +55,24 @@ These two settings only stop deleting branches and rewriting history through git
 
 ## 4. Who sees what
 
-Project folders currently get the group `domain users` and mode `rwxrwx---`, which probably means everyone in that group can read and write them. Who may see or change which project is for the lab to decide later (for example with separate groups per project). The script does not touch permissions: a folder it creates gets the ordinary defaults of the person who runs it.
+Project folders currently get the group `domain users` and mode `rwxrwx---`, which probably means everyone in that group can read and write them. Who may see or change which project is for the lab to decide later (for example with separate groups per project). The script does not touch existing permissions: a folder it creates gets the ordinary defaults of the person who runs it, unless the project is group-shared.
+
+### A project that a team shares
+
+To let a team send to the same project, its folder needs the team's group, the setgid bit and git's shared mode (replace `lab-team`):
+
+```
+chgrp -R lab-team <project>
+find <project> -type d -exec chmod g+rwxs {} +
+find <project> -type f -exec chmod g=u {} +
+git -C <project> config core.sharedRepository group
+```
+
+Repeat the last line in every subject that already exists. Only when **both** the setgid bit and `core.sharedRepository` are there does the script create group-shared subjects (without setgid, new files would get each person's own group).
+
+`core.sharedRepository` covers git's own files only. The files a send writes into the folder follow the server's umask and are read-only for the group, so the next person cannot change them. The `push-to-checkout` hook prevents that. New subjects get it from the script; for the project itself and existing subjects, copy the `push-to-checkout` file from a subject the script created into each `.git/hooks/` and make it executable.
+
+Anyone in the team can change a shared repository's hooks and settings, and those run under the account of whoever sends next. Share a project only with people you trust with that. `ssh` access by a second account may also need git's `safe.directory` setting.
 
 ## 5. Later, not yet recommended: only allow what the app needs
 

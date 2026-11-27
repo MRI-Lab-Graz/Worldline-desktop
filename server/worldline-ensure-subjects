@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # worldline-ensure-subjects <project-absolute-path> <subject>...
 # The only command Worldline Desktop runs over SSH to make subject folders.
-# Additive only: never overwrites, never changes permissions (server policy).
+# Additive only: never overwrites, never changes permissions of anything that exists (server policy).
+# In a group-shared project (core.sharedRepository and a setgid folder) the new subject is group-shared too.
 # stdout, one line per subject: created NAME | exists NAME | refused NAME <reason>
 # exit 0 all created/exists, 1 any refused, 2 bad call (prints "error <reason>").
 set -eu
@@ -22,6 +23,18 @@ real=$(cd -P -- "$project" 2>/dev/null && pwd -P) || bad "project not found"
 [ "$(dirname -- "$real")" = "$root" ] || bad "project is not directly inside the server root"
 [ -e "$real/.git" ] || bad "project is not a dataset"
 
+# Share only when the project already is, and its setgid folder hands new files the project's group
+# (without it they would get the person's own group, possibly everyone at the institute).
+shared=""
+if [ -g "$real" ]; then
+  case $(git -C "$real" config --local --get core.sharedRepository 2>/dev/null) in
+    group|true|1) shared=group ;;
+  esac
+fi
+[ -z "$shared" ] || umask 002
+# A subject on another branch than its project would receive sends without ever showing the files.
+branch=$(git -C "$real" symbolic-ref -q HEAD) || branch=""
+
 target=""; mine=0
 cleanup() { # only ever removes the folder this very run created
   if [ "$mine" = 1 ] && [ -n "$target" ]; then rm -r -- "$target" || true; fi
@@ -29,10 +42,35 @@ cleanup() { # only ever removes the folder this very run created
 }
 trap 'cleanup; exit 130' HUP INT TERM
 
+# core.sharedRepository covers git's own files only; this hook keeps the checked-out files that a
+# send writes group-writable too. Same checks as git's updateInstead, also for the very first send.
+install_hook() {
+  hook=$target/.git/hooks/push-to-checkout
+  [ -e "$hook" ] && return 0 # the server's own template hook stays
+  mkdir -p -- "$target/.git/hooks" &&
+  cat > "$hook" <<'HOOK' &&
+#!/bin/sh
+# Update the checked-out files after a push, keeping them writable for the group.
+set -e
+umask 002
+git update-index -q --ignore-submodules --refresh
+git diff-files --quiet --ignore-submodules --
+if git rev-parse -q --verify HEAD >/dev/null; then
+  git diff-index --quiet --cached --ignore-submodules HEAD --
+  git read-tree -u -m HEAD "$1"
+else
+  git read-tree -u -m "$1"
+fi
+HOOK
+  chmod +x "$hook"
+}
+
 setup() {
-  git -C "$target" init -q &&
+  git -C "$target" init -q ${shared:+--shared=$shared} &&
+  { [ -z "$branch" ] || git -C "$target" symbolic-ref HEAD "$branch"; } &&
   git -C "$target" annex init -q "Worldline Desktop" &&
-  git -C "$target" config receive.denyCurrentBranch updateInstead
+  git -C "$target" config receive.denyCurrentBranch updateInstead &&
+  { [ -z "$shared" ] || install_hook; }
 }
 
 rc=0

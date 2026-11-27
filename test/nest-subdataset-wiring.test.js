@@ -54,3 +54,20 @@ test('the overlay gets its count from the "Nested k of N" lines of the batch', (
   assert.equal(parseNestProgress('Nested x of y'), null)
   assert.match(app, /parseNestProgress\(/)
 })
+
+// A folder that is already saved stays an ordinary folder.
+test('"Convert to subdataset" is only offered for a folder with nothing saved in it', () => {
+  assert.match(app, /depth === 0 && !isRegisteredSubdataset && !node\.saved\b/)
+})
+
+test('creating or opening a project only ever nests never-saved folders', () => {
+  const body = functionBody(app, 'detectAndMaybeNestBids')
+  assert.match(body, /findUnnestedBidsCandidates\(projectPath, \{ onlyNew: true \}\)/)
+})
+
+test('creating a project from a remote dataset never converts what was downloaded', () => {
+  const start = app.indexOf("'cloneInstall',")
+  const body = app.slice(start, app.indexOf('\n}\n', start))
+  assert.match(body, /await detectProjectType\(targetPath\)/)
+  assert.doesNotMatch(body, /detectAndMaybeNestBids|renderBidsNestSummary/)
+})

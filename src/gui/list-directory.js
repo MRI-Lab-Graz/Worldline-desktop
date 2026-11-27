@@ -61,9 +61,10 @@ export async function listDirectory({ rootPath, dirPath = rootPath, run, maxEntr
 
   // `git annex find` initializes git-annex in any repo it runs in, so only ask a
   // repo that already uses it (annex.uuid is set); browsing must not change it.
-  const [status, annexUuid] = await Promise.all([
+  const [status, annexUuid, tracked] = await Promise.all([
     run('git', ['-C', repoRoot, '-c', 'core.quotePath=false', 'status', '--porcelain', '--untracked-files=all', '--', pathspec]),
-    run('git', ['-C', repoRoot, 'config', '--get', 'annex.uuid'])
+    run('git', ['-C', repoRoot, 'config', '--get', 'annex.uuid']),
+    run('git', ['-C', repoRoot, '-c', 'core.quotePath=false', 'ls-files', '--', pathspec])
   ])
   const [present, absent] = annexUuid.failed
     ? [{ failed: true }, { failed: true }]
@@ -79,6 +80,7 @@ export async function listDirectory({ rootPath, dirPath = rootPath, run, maxEntr
   const absentPaths = new Set(annexKnown ? lines(absent.stdout) : [])
   const presentChildren = childNames(presentPaths, prefix)
   const absentChildren = childNames(absentPaths, prefix)
+  const savedChildren = childNames(tracked.failed ? [] : lines(tracked.stdout), prefix)
 
   const entries = shown.map((child) => {
     const absolutePath = join(dir, child.name)
@@ -99,7 +101,8 @@ export async function listDirectory({ rootPath, dirPath = rootPath, run, maxEntr
     const hasPresent = presentChildren.has(child.name)
     const hasAbsent = absentChildren.has(child.name)
     const annexPresent = hasPresent && !hasAbsent ? true : hasPresent ? 'partial' : hasAbsent ? false : null
-    return { ...base, gitStatus: changedChildren.has(child.name) ? 'changed' : null, annexPresent }
+    const saved = tracked.failed || savedChildren.has(child.name)
+    return { ...base, gitStatus: changedChildren.has(child.name) ? 'changed' : null, annexPresent, saved }
   })
 
   return { rootPath: root, dirPath: dir, truncated, entries }

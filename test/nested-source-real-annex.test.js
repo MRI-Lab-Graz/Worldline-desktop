@@ -36,7 +36,9 @@ async function projectWithSourceOnlyData() {
 }
 
 async function nest(adapter, dir) {
-  await adapter.untrackPath(dir, 'sub-01')
+  // Saved in the project: the app never converts that any more. This test only checks the source link itself.
+  execFileSync('git', ['-C', dir, 'rm', '-rq', '--cached', '--', 'sub-01'])
+  execFileSync('git', ['-C', dir, 'commit', '-qm', 'untrack'])
   await adapter.runCommand('createSubdataset', { projectPath: dir, relativePath: 'sub-01', procedure: 'text2git', force: true })
   await adapter.runCommand('save', { projectPath: join(dir, 'sub-01'), message: 'Add existing sub-01 content' })
 }
@@ -117,6 +119,9 @@ async function cloneOfServer({ beforeNest } = {}) {
   git(dir, 'config', 'commit.gpgsign', 'false')
   git(dir, 'annex', 'init', 'laptop')
   await beforeNest?.(dir, server)
+  // Saved in the project: the app never converts that. These tests only check the link back to the source.
+  git(dir, 'rm', '-rq', '--cached', '--', 'sub-01')
+  git(dir, 'commit', '-qm', 'untrack')
 
   const adapter = new DataLadAdapter({ runner: new ProcessRunner() })
   const nested = await adapter.runCommand('nestSubdatasets', { projectPath: dir, relativePaths: ['sub-01'], procedure: 'text2git' })

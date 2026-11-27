@@ -78,11 +78,12 @@
               folders, its own nested dataset with its own history. Large data sets then stay fast, and one person's data
               can be shared or downloaded without the rest. The app saves the files already in those folders for you, so
               this adds saves to your project history. When you press Save, a new <em>sub-…</em> folder is set up this way
-              first. A folder that is already saved is not changed by opening or saving.
+              first. A folder that is already saved is never changed, and a project whose subject folders are already saved
+              as ordinary folders stays that way.
             </p>
             <p>
-              <strong>Off:</strong> your folders stay as they are. You can still turn a single folder into a nested
-              dataset later with <em>Convert to subdataset</em> in Files.
+              <strong>Off:</strong> your folders stay as they are. You can still turn a single new folder into a nested
+              dataset with <em>Convert to subdataset</em> in Files, as long as nothing in it is saved yet.
             </p>
             <p>
               This runs when a project is opened or created and when you save, and it never undoes nesting that already
@@ -429,7 +430,6 @@
             Finished a small step? Check it, then tell future you what you did. This is the action you'll
             use most, and it works fully offline.
           </p>
-          <p id="ordinary-folders-notice" class="hint-inline hint-inline-warning" hidden></p>
 
           <label class="field" hidden>
             <span>Active Project Folder</span>

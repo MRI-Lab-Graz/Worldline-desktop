@@ -303,7 +303,7 @@ export class DataLadAdapter {
   // calling it on every project open/detect is naturally a no-op.
   // `onlyNew`: only folders the project has never saved (and that hold files and are no repository yet). Converting a
   // saved folder takes its files out of the project, so that never happens on its own after the first setup.
-  async findUnnestedBidsCandidates(projectPath, { onlyNew = false, savedOnly = false } = {}) {
+  async findUnnestedBidsCandidates(projectPath, { onlyNew = false } = {}) {
     const registered = new Set(await this.#readSubdatasetPathsFromGitModules(projectPath))
 
     let entries
@@ -317,15 +317,13 @@ export class DataLadAdapter {
       .filter((entry) => entry.isDirectory() && !registered.has(entry.name))
       .filter((entry) => BIDS_SUBJECT_DIR_PATTERN.test(entry.name) || BIDS_TOP_LEVEL_DIR_NAMES.includes(entry.name))
       .map((entry) => entry.name)
-    if (savedOnly) {
-      // Subject folders already saved as ordinary files (saved outside the app): a "tree" in the last save; a nested
-      // dataset is recorded as a "commit" there. One git call, however many there are.
-      const saved = await this.runner.run('git', ['-C', projectPath, 'ls-tree', '-z', 'HEAD'])
-      if (saved.failed) return []
-      const trees = new Set(saved.stdout.split('\0').map((entry) => /^\d+ tree [0-9a-f]+\t(.*)$/s.exec(entry)?.[1]))
-      return candidates.filter((name) => name.startsWith('sub-') && trees.has(name))
-    }
     if (!onlyNew) return candidates
+    // Nesting is decided once per project: a flat one (subjects saved as ordinary folders, none nested) stays flat.
+    if (![...registered].some((name) => name.startsWith('sub-'))) {
+      const saved = await this.runner.run('git', ['-C', projectPath, 'ls-tree', '-z', 'HEAD'])
+      const trees = saved.failed ? [] : saved.stdout.split('\0').map((entry) => /^\d+ tree [0-9a-f]+\t(.*)$/s.exec(entry)?.[1])
+      if (trees.some((name) => name && BIDS_SUBJECT_DIR_PATTERN.test(name))) return []
+    }
 
     const fresh = []
     for (const name of candidates) {
@@ -420,51 +418,6 @@ export class DataLadAdapter {
     return { ok: true, path, side }
   }
 
-  // Idempotent pre-step for nesting a folder that may already be tracked in
-  // the parent's history (a flat remote clone, or a pre-existing project
-  // opened from disk) — as opposed to the loose-untracked-files case, where
-  // there's nothing to untrack. --cached only touches git's index, never
-  // the working tree, so this never risks losing file content (or annex
-  // symlinks, fetched or not).
-  //
-  // The removal has to be committed, not just staged: `datalad create
-  // --force` refuses with a "collision with content in parent dataset"
-  // error if the path is still present in the parent's *committed* tree,
-  // even once `git rm --cached` has staged its removal — verified directly
-  // against real DataLad 1.6 behavior.
-  //
-  // The commit deliberately has NO pathspec: `git commit -- <pathspec>`
-  // re-stages that pathspec's current *working-tree* content before
-  // comparing to HEAD (effectively an implicit `git add`), which undoes the
-  // --cached removal above since the files are still physically present —
-  // verified directly, it reports "nothing to commit" and leaves the
-  // removal uncommitted. A plain `git commit` just commits whatever is
-  // currently staged, which is exactly (and only) this removal.
-  async untrackPath(projectPath, relativePath) {
-    if (!isSafeRelativeSubdatasetPath(relativePath)) {
-      throw new Error(`Invalid path: ${relativePath}`)
-    }
-
-    const tracked = await this.runner.run('git', ['-C', projectPath, 'ls-files', '--', relativePath])
-    if (!tracked.stdout.trim()) {
-      return { removed: false }
-    }
-
-    const rmResult = await this.runner.run('git', ['-C', projectPath, 'rm', '-r', '--cached', '--', relativePath])
-    if (rmResult.failed) {
-      throw new Error(`Could not untrack ${relativePath}: ${rmResult.stderr || rmResult.stdout}`)
-    }
-
-    const commitResult = await this.runner.run('git', [
-      '-C', projectPath, 'commit', '-m', `Untrack ${relativePath} for subdataset conversion`
-    ])
-    if (commitResult.failed) {
-      throw new Error(`Could not commit untracking of ${relativePath}: ${commitResult.stderr || commitResult.stdout}`)
-    }
-
-    return { removed: true }
-  }
-
   // A subject folder nested into a project that was downloaded from a source (OpenNeuro's S3, ...) starts as a
   // brand-new dataset that has never heard of that source, so its files cannot be fetched. Give it what the project
   // already knows: the project's records of where each file lives, and the download sources the project itself uses.
@@ -549,16 +502,10 @@ export class DataLadAdapter {
   // folder as its own dataset afterwards) and registers it in the parent's .gitmodules; the parent's own save records it.
   // Fails closed: a symlink, an existing .git or anything unexpected is refused before a single file is written.
   // Several subjects at once: each one is `#nestSubdataset`, so every folder gets the same checks. The parent is only
-  // touched one at a time (untracking first, then the .gitmodules lock). A Stop starts no new subject; the running ones
+  // touched one at a time (the .gitmodules lock). A Stop starts no new subject; the running ones
   // end the way the single command ends them. One failing subject does not stop the others.
   async #nestSubdatasets({ projectPath, relativePaths, procedure }, runOptions) {
     const total = relativePaths.length
-    for (const relativePath of relativePaths) {
-      if (runOptions.signal?.aborted) break
-      // Refused below; never touch the parent for a name that cannot be nested or is not a real folder.
-      if (!isPlainNestName(relativePath) || !(await lstat(join(projectPath, relativePath)).catch(() => null))?.isDirectory()) continue
-      await this.untrackPath(projectPath, relativePath).catch(() => {}) // as before: the per-subject nest decides
-    }
     // Only the "Nested k of N" lines go to the activity line: git's own output from four folders would bury the count.
     const quiet = { ...runOptions, onOutput: undefined }
     const subjects = relativePaths.map((relativePath) => ({ relativePath, ok: false, message: 'Not started (stopped).' }))
@@ -615,6 +562,12 @@ export class DataLadAdapter {
     const folder = join(projectPath, relativePath)
     if (!(await lstat(folder).catch(() => null))?.isDirectory()) {
       return refuse(`"${relativePath}" is not a plain folder (a missing folder or a link cannot be nested).`)
+    }
+    // A folder the project has already saved stays an ordinary folder: converting it would make its annexed files
+    // unreadable and empty it on the server. Fails closed when git cannot tell.
+    const saved = await this.runner.run('git', ['-C', projectPath, 'ls-files', '--', relativePath], runOptions)
+    if (saved.failed || saved.stdout.trim()) {
+      return refuse(`"${relativePath}" is already saved as an ordinary folder, so it stays one. Your files are safe.`)
     }
     for (const name of ['.git', '.datalad', '.gitattributes']) {
       const existing = await lstat(join(folder, name)).catch(() => null)

@@ -294,20 +294,12 @@ handle('adapter:ensureBidsMarker', async (_event, payload = {}) => {
 
 handle('adapter:findUnnestedBidsCandidates', async (_event, projectPath, options) => {
   requireAuthorizedRoot(projectPath)
-  return adapter.findUnnestedBidsCandidates(projectPath, {
-    onlyNew: options?.onlyNew === true,
-    savedOnly: options?.savedOnly === true
-  })
+  return adapter.findUnnestedBidsCandidates(projectPath, { onlyNew: options?.onlyNew === true })
 })
 
 handle('adapter:listDataFiles', async (_event, projectPath) => {
   requireAuthorizedRoot(projectPath)
   return adapter.listDataFiles(projectPath)
-})
-
-handle('adapter:untrackPath', async (_event, payload = {}) => {
-  requireAuthorizedRoot(payload.projectPath)
-  return adapter.untrackPath(payload.projectPath, payload.relativePath)
 })
 
 handle('adapter:linkSubdatasetSource', async (_event, payload = {}) => {

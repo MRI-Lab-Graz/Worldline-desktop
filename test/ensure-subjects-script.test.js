@@ -134,5 +134,90 @@ test('script has no force/recursive-delete shortcuts and one guarded rm', () => 
   const rms = src.match(/\brm\b/g) || []
   assert.strictEqual(rms.length, 1)
   assert.strictEqual(src.split('rm -r -- "$target"').length, 2)
-  assert.ok(!/chmod|umask|chgrp/.test(src.replace(/^\s*#.*$/gm, '')))
+  // The only permission steps: a group-friendly umask for a group-shared project, and making the new hook runnable.
+  const code = src.replace(/^\s*#.*$/gm, '')
+  assert.ok(!/chgrp|chown|setfacl/.test(code))
+  assert.deepStrictEqual(code.match(/\b(chmod|umask)\b[^&|;\n]*/g), ['umask 002', 'umask 002', 'chmod +x "$hook"'])
+})
+
+// A group-shared project: core.sharedRepository plus a setgid folder, so new things get the project's group.
+function shared ({ config = 'group', setgid = true } = {}) {
+  const s = setup()
+  if (config) git(s.env, s.project, 'config', 'core.sharedRepository', config)
+  fs.chmodSync(s.project, setgid ? 0o2770 : 0o770)
+  // the usual server umask, whatever the test machine has
+  s.run = (...args) => {
+    const r = spawnSync('bash', ['-c', 'umask 022; exec bash "$0" "$@"', SCRIPT, ...args], { env: s.env, encoding: 'utf8' })
+    return { code: r.status, out: r.stdout.trim().split('\n').filter(Boolean), err: r.stderr }
+  }
+  s.dir = path.join(s.project, 'sub-001')
+  s.hook = path.join(s.dir, '.git', 'hooks', 'push-to-checkout')
+  return s
+}
+const mode = (p) => fs.statSync(p).mode & 0o7777
+const groupWrites = (p) => (mode(p) & 0o020) !== 0
+// A colleague's computer: commits one file and sends it with the usual server umask.
+function send (s, from, file, text, branch = 'master') {
+  if (!fs.existsSync(from)) assert.strictEqual(spawnSync('git', ['init', '-q', from], { env: s.env }).status, 0)
+  fs.mkdirSync(path.dirname(path.join(from, file)), { recursive: true })
+  fs.writeFileSync(path.join(from, file), text)
+  git(s.env, from, 'add', '-A')
+  git(s.env, from, 'commit', '-qm', text)
+  return spawnSync('bash', ['-c', 'umask 022; exec git -C "$0" push -q "$1" "HEAD:$2"', from, s.dir, branch], { env: s.env, encoding: 'utf8' })
+}
+
+test('in a group-shared project a new subject and everything sent to it stays group-writable', { skip: skipAnnex }, () => {
+  const s = shared()
+  assert.deepStrictEqual(s.run(s.project, 'sub-001').out, ['created sub-001'])
+  assert.ok(['1', 'group'].includes(git(s.env, s.dir, 'config', 'core.sharedRepository')))
+  assert.ok(groupWrites(s.dir) && groupWrites(path.join(s.dir, '.git')) && groupWrites(path.join(s.dir, '.git', 'hooks')))
+  assert.ok((mode(s.hook) & 0o100) !== 0, 'hook is executable')
+  const from = path.join(s.tmp, 'colleague')
+  // the first send arrives in a repository that has no commit yet
+  const first = send(s, from, 'ses-1/a.tsv', 'one')
+  assert.strictEqual(first.status, 0, first.stderr)
+  assert.strictEqual(fs.readFileSync(path.join(s.dir, 'ses-1', 'a.tsv'), 'utf8'), 'one')
+  assert.ok(groupWrites(path.join(s.dir, 'ses-1')) && groupWrites(path.join(s.dir, 'ses-1', 'a.tsv')))
+  const second = send(s, from, 'ses-2/b.tsv', 'two')
+  assert.strictEqual(second.status, 0, second.stderr)
+  assert.ok(groupWrites(path.join(s.dir, 'ses-2')) && groupWrites(path.join(s.dir, 'ses-2', 'b.tsv')))
+})
+
+test('the hook still refuses to overwrite a change made on the server', { skip: skipAnnex }, () => {
+  const s = shared()
+  s.run(s.project, 'sub-001')
+  const from = path.join(s.tmp, 'colleague')
+  send(s, from, 'a.tsv', 'one')
+  fs.writeFileSync(path.join(s.dir, 'a.tsv'), 'edited on the server')
+  const r = send(s, from, 'a.tsv', 'two')
+  assert.notStrictEqual(r.status, 0)
+  assert.strictEqual(fs.readFileSync(path.join(s.dir, 'a.tsv'), 'utf8'), 'edited on the server')
+})
+
+test('a project that is not fully group-shared gets no wider permissions', { skip: skipAnnex }, () => {
+  for (const options of [{ config: null }, { setgid: false }, { config: 'umask' }]) {
+    const s = shared(options)
+    assert.deepStrictEqual(s.run(s.project, 'sub-001').out, ['created sub-001'])
+    assert.ok(!groupWrites(s.dir) && !groupWrites(path.join(s.dir, '.git')), JSON.stringify(options))
+    assert.ok(!fs.existsSync(s.hook), JSON.stringify(options))
+    assert.strictEqual(git(s.env, s.dir, 'config', 'core.sharedRepository'), '', JSON.stringify(options))
+  }
+})
+
+test('a new subject uses the project\'s branch, so a send shows up on the server', { skip: skipAnnex }, () => {
+  for (const branch of ['main', 'master']) {
+    const s = shared()
+    git(s.env, s.project, 'symbolic-ref', 'HEAD', `refs/heads/${branch}`)
+    s.run(s.project, 'sub-001')
+    assert.strictEqual(git(s.env, s.dir, 'symbolic-ref', 'HEAD'), `refs/heads/${branch}`)
+    const r = send(s, path.join(s.tmp, 'colleague'), 'a.tsv', 'one', branch)
+    assert.strictEqual(r.status, 0, r.stderr)
+    assert.strictEqual(fs.readFileSync(path.join(s.dir, 'a.tsv'), 'utf8'), 'one')
+  }
+})
+
+test('the server script keeps Unix line endings in every checkout, also on Windows', { skip: !have('git', ['--version']) && 'git missing' }, () => {
+  const r = spawnSync('git', ['check-attr', 'eol', '--', 'server/worldline-ensure-subjects'], { cwd: path.join(__dirname, '..'), encoding: 'utf8' })
+  assert.match(r.stdout, /: eol: lf\s*$/)
+  assert.ok(!fs.readFileSync(SCRIPT).includes('\r'))
 })

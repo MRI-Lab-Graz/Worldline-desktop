@@ -17,7 +17,14 @@ process.env.GIT_CONFIG_GLOBAL = gitConfig
 
 const has = (cmd, args) => { try { execFileSync(cmd, args, { stdio: 'ignore' }); return true } catch { return false } }
 const skip = !(has('git', ['annex', 'version']) && has('datalad', ['--version'])) && 'git-annex and datalad are needed'
-const run = (cwd, cmd, ...args) => execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' })
+const run = (cwd, cmd, ...args) => {
+  try {
+    return execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: 'pipe' })
+  } catch (error) {
+    if (error.stdout) error.message += `\nstdout:\n${error.stdout}`
+    throw error
+  }
+}
 
 // A project with two separately tracked subjects (one name with a space and an umlaut), cloned; then the source
 // takes `gone` out of the project.
@@ -39,6 +46,13 @@ async function removedUpstream(gone = 'sub-02 ü') {
 }
 
 const tracked = (project) => run(project, 'git', '-c', 'core.quotePath=false', 'ls-tree', '--name-only', 'HEAD')
+
+test('fixture command failures include stdout', () => {
+  assert.throws(
+    () => run(tmpdir(), process.execPath, '-e', "console.log('fixture error'); process.exit(1)"),
+    /stdout:\nfixture error/
+  )
+})
 
 test('Get updates says which removed folder is still here', { skip }, async () => {
   const { project, adapter, gone } = await removedUpstream()

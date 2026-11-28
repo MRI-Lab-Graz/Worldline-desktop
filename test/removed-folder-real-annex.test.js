@@ -26,9 +26,9 @@ const run = (cwd, cmd, ...args) => {
   }
 }
 
-// A project with two separately tracked subjects (one name with a space and an umlaut), cloned; then the source
-// takes `gone` out of the project.
-async function removedUpstream(gone = 'sub-02 ü') {
+// A project with two separately tracked subjects (one name with spaces), cloned; then the source takes `gone` out.
+// Non-ASCII subject paths are covered by nest-subdataset-real-annex.test.js.
+async function removedUpstream(gone = 'sub-02 with space') {
   const root = await mkdtemp(join(tmpdir(), 'dlad-removed-'))
   const source = join(root, 'source')
   await mkdir(source)

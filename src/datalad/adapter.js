@@ -28,6 +28,13 @@ function isPlainNestName(relativePath) {
   )
 }
 
+function removedFolderMessage(paths) {
+  const names = paths.slice(0, 5).join(', ') + (paths.length > 5 ? ` and ${paths.length - 5} more` : '')
+  const one = paths.length === 1
+  return `${names} ${one ? 'was' : 'were'} removed from this project, but ${one ? 'the folder is' : 'the folders are'} still on this computer. ` +
+    `Saving now would put ${one ? 'it' : 'them'} back. Move ${one ? 'it' : 'them'} out of the project or delete ${one ? 'it' : 'them'}, then try again.`
+}
+
 // git-annex's "adjusted/<branch>(unlocked)": what Windows datasets are checked out on.
 export const ADJUSTED_BRANCH_PATTERN = /^adjusted\/(.+)\([^)]*\)$/
 
@@ -668,6 +675,22 @@ export class DataLadAdapter {
     }
 
     const saveScope = commandName === 'save' ? await this.#resolveSaveScope(request) : null
+    // Both record whatever lies in the project, so neither may run while a removed folder is still in it.
+    if (commandName === 'save' || commandName === 'run') {
+      const root = saveScope && saveScope.datasetRoot !== '.' ? saveScope.datasetRoot : request.projectPath
+      const left = await this.#removedFoldersStillHere(root, runOptions)
+      if (left.failed) {
+        return buildCommandResult(commandName, left.failed, mapCommandError(commandName, left.failed))
+      }
+      if (left.paths.length > 0) {
+        return buildCommandResult(commandName, { ...left.ran, failed: true }, {
+          code: 'REMOVED_FOLDER_STILL_HERE',
+          title: 'A removed folder is still here',
+          message: removedFolderMessage(left.paths),
+          technicalDetails: left.paths.join('\n')
+        })
+      }
+    }
     const commandSpec = this.#buildCommand(commandName, request, saveScope)
     const raw = await this.runner.run(commandSpec.command, commandSpec.args, {
       ...commandSpec.options,
@@ -686,6 +709,12 @@ export class DataLadAdapter {
       if (commandName === 'merge' || commandName === 'finishMerge') {
         warnings.push(...(await this.syncSubdatasets(request.projectPath)))
       }
+      if (commandName === 'update' || commandName === 'merge' || commandName === 'finishMerge') {
+        const left = await this.#removedFoldersStillHere(request.projectPath, runOptions)
+        if (left.paths?.length > 0) {
+          warnings.push({ code: 'REMOVED_FOLDER_STILL_HERE', severity: 'warning', message: removedFolderMessage(left.paths) })
+        }
+      }
       return buildCommandResult(commandName, result, null, warnings)
     }
 
@@ -703,6 +732,41 @@ export class DataLadAdapter {
     }
 
     return buildCommandResult(commandName, result, mapCommandError(commandName, result), warnings)
+  }
+
+  // Folders the history says were taken out of the project, but which are still on disk where the next save would
+  // record them again. Git cannot delete a separately tracked folder when an update removes it.
+  // ponytail: separately tracked folders only (git deletes ordinary files itself), recognised by their path.
+  async #removedFoldersStillHere(root, runOptions, prefix = '') {
+    const paths = []
+    if (!(await fileExists(join(root, '.git')))) return { paths }
+    const git = (...args) => this.runner.run('git', ['-C', root, '--literal-pathspecs', ...args], { ...runOptions, maxOutputBytes: 64 * 1024 * 1024 })
+    const head = await git('rev-parse', '-q', '--verify', 'HEAD')
+    if (head.cancelled) return { failed: head }
+    if (head.failed) return { paths, ran: head } // no save yet, so nothing was ever removed
+    const log = await git('log', '--no-show-signature', '--raw', '--no-renames', '--diff-filter=D', '--format=', '-z')
+    if (log.failed) return { failed: log }
+    const fields = (log.stdout ?? '').split('\0')
+    const removed = new Set()
+    for (let i = 0; i + 1 < fields.length; i += 1) {
+      if (fields[i].trim().startsWith(':160000 000000 ')) removed.add(fields[i + 1])
+    }
+    for (const path of removed) {
+      if (!isSafeRelativeSubdatasetPath(path) || !(await fileExists(join(root, path)))) continue
+      const tracked = await git('ls-files', '-z', '--', path)
+      const addable = await git('ls-files', '-z', '--others', '--exclude-standard', '--', path)
+      if (tracked.failed || addable.failed) return { failed: tracked.failed ? tracked : addable }
+      if (!tracked.stdout && addable.stdout) paths.push(prefix + path)
+    }
+    for (const name of await this.#readSubdatasetPathsFromGitModules(root)) {
+      const folder = join(root, name)
+      // A symbolic link could point at another repository: only a real folder counts as installed.
+      if (!(await lstat(folder).catch(() => null))?.isDirectory()) continue
+      const inner = await this.#removedFoldersStillHere(folder, runOptions, `${prefix}${name}/`)
+      if (inner.failed) return inner
+      paths.push(...inner.paths)
+    }
+    return { paths, ran: head }
   }
 
   async #mergeInProgress(projectPath, runOptions) {

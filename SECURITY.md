@@ -107,6 +107,9 @@ Each control below has a test; the file names are where to verify it.
 **Recommended for institutional deployment**
 - Pre-trust shared lab locations with the system-level `policy.json` (see Administrator policy above).
 
+**Removed folders** (`src/datalad/adapter.js`)
+- A separately tracked folder (nested dataset, for example a withdrawn participant) that an update removed stays on disk. Save and Run refuse while such a folder would be recorded again, and Get updates and merges name it. The app never deletes it. It is recognised by its path in the history, so a folder renamed by hand is not recognised, and commands run outside the app are not checked. Ordinary files that could not be deleted (for example open in another program) are not covered.
+
 ## Known limitations
 
 - **Folder trust is a prompt, not a sandbox.** If you trust a folder, git runs what its config says (filters, merge drivers, ssh commands). Hooks never run, but the app does not run your own hooks either.

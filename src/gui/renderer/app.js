@@ -22,7 +22,7 @@ import { previewPaths } from './reckless-preview.js'
 import { escapeHtml } from './escape-html.js'
 import { describeUpdates } from './update-notice.js'
 import { setupBadge } from './setup-badge.js'
-import { changeSignature, describeFolders, describeSaveValidity, describeTypeBadge, describeValidity, moreProblemsLine } from './project-card.js'
+import { changeSignature, checkingElapsedText, describeFolders, describeSaveValidity, describeTypeBadge, describeValidity, moreProblemsLine, notSentText } from './project-card.js'
 import { rowDataActions } from './row-data-actions.js'
 import { quarterTurn } from './logo-turn.js'
 import { joinProjectPath, existingFolderProblem } from './project-path.js'
@@ -129,6 +129,9 @@ const RECENT_PROJECT_TITLES_STORAGE_KEY = 'worldlineDesktop.recentProjectTitles'
 const BIDS_AUTO_NEST_STORAGE_KEY = 'worldlineDesktop.bidsAutoNest'
 const PROJECT_EMOJI_CHOICES = ['🧪', '🧬', '🧠', '🛰️', '📊', '📁', '📝', '🔬', '🗂️', '🧭', '📚', '🦉']
 
+// Declared up here: the first render runs while this module is still loading.
+let checkingTimer = null
+
 const elements = {
   recentProjectsOutput: document.getElementById('recent-projects-output'),
   clearRecentProjectsButton: document.getElementById('clear-recent-projects'),
@@ -163,6 +166,8 @@ const elements = {
   savePanel: document.getElementById('save-checkpoint-panel'),
   saveStepValid: document.getElementById('save-step-valid'),
   saveValidityText: document.getElementById('save-validity-text'),
+  saveValidityBusy: document.getElementById('save-validity-busy'),
+  saveValidityElapsed: document.getElementById('save-validity-elapsed'),
   saveValidityProblems: document.getElementById('save-validity-problems'),
   saveValidityRecheck: document.getElementById('save-validity-recheck'),
   messageNudge: document.getElementById('message-nudge'),
@@ -1392,7 +1397,7 @@ elements.publishProjectButton.addEventListener('click', async () => {
   const result = await runWorkflowCommand('push', { projectPath, remoteName }, elements.publishProjectButton)
   // A failed send keeps its own error line; the server-folder note would hide it.
   if (prepNote && result?.ok === true) setLastActionState(prepNote.text, prepNote.tone)
-  if (result?.notSent) setLastActionState('Sent, but not everything.', 'warning') // matters more than the note
+  if (result?.notSent) setLastActionState(notSentText(result.notSent), 'warning') // matters more than the note
   if (isSourceRefusal('push', result)) {
     // Learn from the refusal (wording only): a network problem or a stop never gets here.
     try {
@@ -2711,7 +2716,7 @@ async function runWorkflowCommand(commandName, request, button = null, busyLabel
     }
 
     if (result.notSent) {
-      setLastActionState('Sent, but not everything.', 'warning')
+      setLastActionState(notSentText(result.notSent), 'warning')
     } else if (result.ok) {
       setLastActionState(
         result.warnings?.length
@@ -4039,7 +4044,7 @@ function buildWorkflowStatusLine(result) {
   }
 
   if (result.commandName === 'push') {
-    if (result.notSent) return 'Sent, but not everything.'
+    if (result.notSent) return notSentText(result.notSent)
     return 'Send my saves finished.'
   }
 
@@ -4256,7 +4261,7 @@ async function refreshValidity(projectPath) {
   if (validityRunId) api.cancelCommand(validityRunId).catch(() => {})
   const runId = `prism-check-${Date.now()}`
   validityRunId = runId
-  state.rootProjectCheck = { verdict: 'checking' }
+  state.rootProjectCheck = { verdict: 'checking', startedAt: Date.now() }
   renderValidity()
   let check
   try {
@@ -4284,6 +4289,7 @@ function renderValidity() {
     badge.title = out.title
     badge.classList.toggle('badge-ok', out.tone === 'ok')
     badge.classList.toggle('badge-bad', out.tone === 'bad')
+    badge.classList.toggle('badge-wait', out.tone === 'wait')
   }
   renderSaveValidity()
 }
@@ -4298,7 +4304,19 @@ function currentSaveValidity() {
   return describeSaveValidity({ check: state.rootProjectCheck, stale })
 }
 
+function renderCheckingProgress() {
+  const check = state.rootProjectCheck
+  const checking = check?.verdict === 'checking'
+  elements.saveValidityBusy.hidden = !checking
+  clearInterval(checkingTimer)
+  if (!checking) return
+  const tick = () => (elements.saveValidityElapsed.textContent = checkingElapsedText(Date.now() - check.startedAt))
+  tick()
+  checkingTimer = setInterval(tick, 1000)
+}
+
 function renderSaveValidity() {
+  renderCheckingProgress()
   const out = currentSaveValidity()
   const check = state.rootProjectCheck
   elements.saveStepValid.hidden = !out

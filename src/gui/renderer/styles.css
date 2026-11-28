@@ -272,6 +272,19 @@ body {
   color: #9b1c1c;
 }
 
+.badge-wait::after {
+  content: '';
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-left: 0.4em;
+  vertical-align: -0.1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: button-spin 800ms linear infinite;
+}
+
 .validity-details {
   margin-top: 8px;
   font-size: 0.9rem;
@@ -1874,7 +1887,7 @@ select:disabled {
 
 .state-pill {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: 14px;
   padding: 0.2rem 0.65rem;
   font-size: 0.78rem;
   font-weight: 600;

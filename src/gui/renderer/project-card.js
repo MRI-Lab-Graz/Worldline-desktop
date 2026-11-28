@@ -64,6 +64,19 @@ export function changeSignature(files) {
   return (Array.isArray(files) ? files : []).map((f) => `${f?.status}:${f?.path}`).sort().join('\n')
 }
 
+// The validator reports only at the end, so there is no percentage: a running clock shows the app has not hung.
+export function checkingElapsedText(ms) {
+  const s = Math.floor(ms / 1000)
+  return `Still working: ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}. A large dataset can take a few minutes.`
+}
+
+// A send that left nested folders behind: which ones, why, and what to do.
+export function notSentText(folders) {
+  const names = folders.slice(0, 5).join(', ') + (folders.length > 5 ? ` and ${folders.length - 5} more` : '')
+  const it = folders.length === 1 ? 'it' : 'them'
+  return `Not sent: ${names}. The server has no place for ${it} yet, so ${folders.length === 1 ? 'it is' : 'they are'} only on this computer. Everything else was sent. Sending again will not change this: ask the person who looks after the server to add ${it}.`
+}
+
 // The validity box inside the Save area. null = nothing to show (not a BIDS/PRISM project, or no result yet).
 // Only a fresh "not valid" holds Save back; Save checks again by itself, so an old result never blocks.
 export function describeSaveValidity({ check, stale }) {
